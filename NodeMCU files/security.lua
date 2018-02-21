@@ -1,6 +1,6 @@
 -- Global variables and parameters.
 nodeID = "001"	            -- a node identifier for this device
-tgtHost = "192.168.1.14"	-- target host (broker)
+tgtHost = "192.168.1.11"	-- target host (broker)
 tgtPort = 1883			    -- target port (broker listening on)
 mqttUserID = "mosquitto"	-- account to use to log into the broker
 mqttPass = "password"		-- broker account password
@@ -8,7 +8,7 @@ mqttTimeOut = 120		    -- connection timeout
 dataInt = 1			        -- data transmission interval in seconds 
 topic1 = "/system_name/" .. nodeID .. "/" .. "config"   -- the MQTT topic queue to use
 topic2 = "/system_name/" .. nodeID .. "/" .. "action" 
-topic3 = "/system_name/" .. nodeID .. "/" .. "discover"
+topic3 = "/system_name/" .. "discover"
     
 -- Reconnect to MQTT when we receive an "offline" message.
   
