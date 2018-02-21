@@ -6,7 +6,7 @@ port = 1883
 clientID = "raspi"
 broker = "127.0.0.1"
 mqttclient_log = True
-topic = "system_name/"
+topic = "/system_name/"
 # if not connected after this time assume failure
 max_connection_time = 6
 
