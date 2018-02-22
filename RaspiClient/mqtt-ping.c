@@ -11,19 +11,20 @@
 #define QOS         1
 #define TIMEOUT     10000L
 
-int main(int argc, char* argv[])
-{
-    MQTTClient client;
+int main(int argc, char* argv[]){
+	
+	int rc;
 	int len = strlen("password");
 	char* username = "mosquitto";
 	char* password = "password";
-    MQTTClient_connectOptions conn_opts = { {'M', 'Q', 'T', 'C'}, 5, 60, 1, 1, NULL, username, password, 30, 20, NULL, 0, NULL, 0, BROKER, len, {NULL, 0, 0}, {0, NULL} };
-    MQTTClient_message pubmsg = MQTTClient_message_initializer;
-    MQTTClient_deliveryToken token;
-    int rc;
+	
+	MQTTClient client;
+	MQTTClient_deliveryToken token;
+	MQTTClient_message pubmsg = MQTTClient_message_initializer;
+    MQTTClient_connectOptions conn_opts = { {'M', 'Q', 'T', 'C'}, 5, 60, 1, 1, NULL, username, password, 30, 20, NULL, 0, NULL, 0, BROKER, len};
 
-    MQTTClient_create(&client, BROKER, CLIENTID,
-        MQTTCLIENT_PERSISTENCE_NONE, NULL);
+
+    MQTTClient_create(&client, BROKER, CLIENTID, MQTTCLIENT_PERSISTENCE_NONE, NULL);
     conn_opts.keepAliveInterval = 20;
     conn_opts.cleansession = 1;
 
@@ -31,11 +32,13 @@ int main(int argc, char* argv[])
         printf("Failed to connect, return code %d\n", rc);
         exit(-1);
     }
+	
     pubmsg.payload = PAYLOAD;
     pubmsg.payloadlen = strlen(PAYLOAD);
     pubmsg.qos = QOS;
     pubmsg.retained = 0;
-    MQTTClient_publishMessage(client, TOPIC, &pubmsg, &token);
+    
+	MQTTClient_publishMessage(client, TOPIC, &pubmsg, &token);
     printf("Waiting for up to %d seconds for publication of %s\n"
             "on topic %s for client with ClientID: %s\n",
             (int)(TIMEOUT/1000), PAYLOAD, TOPIC, CLIENTID);
