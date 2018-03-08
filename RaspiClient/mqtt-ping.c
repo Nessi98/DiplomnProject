@@ -1,7 +1,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-
+#include "MQTTClientPersistence.h"
 #include "MQTTClient.h"
 
 #define BROKER     "127.0.0.1"
