@@ -1,8 +1,8 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include "MQTTClientPersistence.h"
 #include "MQTTClient.h"
+#include "MQTTClientPersistence.h"
 
 #define BROKER     "127.0.0.1"
 #define CLIENTID    "raspi"
@@ -14,14 +14,19 @@
 int main(int argc, char* argv[]){
 	
 	int rc;
-	int len = strlen("password");
 	char* username = "mosquitto";
 	char* password = "password";
+	char* discover = "system_name/discover";
 	
 	MQTTClient client;
 	MQTTClient_deliveryToken token;
 	MQTTClient_message pubmsg = MQTTClient_message_initializer;
-    MQTTClient_connectOptions conn_opts = { {'M', 'Q', 'T', 'C'}, 5, 60, 1, 1, NULL, username, password, 30, 20, NULL, 0, NULL, 0, BROKER, len};
+    MQTTClient_connectOptions conn_opts = MQTTClient_connectOptions_initializer;
+	
+	conn_opts.keepAliveInterval = 20;
+	conn_opts.cleansession = 1;
+	conn_opts.username = username;
+	conn_opts.password = password;
 
 
     MQTTClient_create(&client, BROKER, CLIENTID, MQTTCLIENT_PERSISTENCE_NONE, NULL);
@@ -33,10 +38,14 @@ int main(int argc, char* argv[]){
         exit(-1);
     }
 	
+	printf("Connection success\n");
+	
     pubmsg.payload = PAYLOAD;
     pubmsg.payloadlen = strlen(PAYLOAD);
     pubmsg.qos = QOS;
     pubmsg.retained = 0;
+	
+	MQTTClient_subscribe(&client, discover, QOS);
     
 	MQTTClient_publishMessage(client, TOPIC, &pubmsg, &token);
     printf("Waiting for up to %d seconds for publication of %s\n"
