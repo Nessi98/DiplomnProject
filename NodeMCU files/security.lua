@@ -1,14 +1,14 @@
 -- Global variables and parameters.
 nodeID = "001"	            -- a node identifier for this device
-tgtHost = "192.168.1.11"	-- target host (broker)
+tgtHost = "192.168.1.13"	-- target host (broker)
 tgtPort = 1883			    -- target port (broker listening on)
 mqttUserID = "mosquitto"	-- account to use to log into the broker
 mqttPass = "password"		-- broker account password
 mqttTimeOut = 120		    -- connection timeout
-dataInt = 1			        -- data transmission interval in seconds 
-topic1 = "/system_name/" .. nodeID .. "/" .. "config"   -- the MQTT topic queue to use
-topic2 = "/system_name/" .. nodeID .. "/" .. "action" 
-topic3 = "/system_name/" .. "discover"
+dataInt = 1			
+messageReceive = 1          -- data transmission interval in seconds 
+configTopic = "/system_name/" .. nodeID .. "/" .. "config"   -- the MQTT topic queue to use 
+discoverTopic = "/system_name/" .. "discover"
     
 -- Reconnect to MQTT when we receive an "offline" message.
   
@@ -17,33 +17,26 @@ function reconn()
     conn()
 end  
    
--- Establish a connection to the MQTT broker with the configured parameters.
-     
+-- Establish a connection to the MQTT broker with the configured parameters.    
 function conn()
     print("Making connection to MQTT broker")
-    mqttBroker:connect(tgtHost, tgtPort, 0, function(client) print ("connected")
+    mqttBroker:connect(tgtHost, tgtPort, 0, function(client) print ("Connected")
     mqttSub() end, function(client, reason) print("failed reason: "..reason) end)
 end
 
 function mqttSub()
-
-    mqttBroker:subscribe(topic1, 0, function(conn)
-        print("Subscribing topic: " .. topic1)
-        
-        mqttBroker:subscribe(topic2, 0, function(conn)
-            print("Subscribing topic: " .. topic2)
-            main()
+    mqttBroker:subscribe(configTopic, 0,
+        function(conn) print("Subscribe success")
+        main()
         end)
-    end)
 end
 
--- Function pubEvent() publishes the sensor value to the defined queue.
-     
-function pubEvent(pubValue, topicQueue)
-    -- rv = adc.read(0)                -- read temp sensor
-    --pubValue = nodeId .. " " .. 24        -- build buffer
-    print("Publishing to " .. topicQueue .. ": " .. pubValue)   -- print a status message
-    mqttBroker:publish(topicQueue, pubValue, 0, 0)  -- publish
+
+-- Function pubEvent() publishes the data to the defined queue.   
+function pubEvent(message, topic)
+    -- Print a status message
+    print("Publishing to " .. topic .. ": " .. message)
+    mqttBroker:publish(topic, message, 0, 0)  -- publish
 end
      
 -- makeConn() instantiates the MQTT control object, sets up callbacks,
@@ -61,14 +54,20 @@ function makeConn()
     print("Setting up callbacks")
     mqttBroker:on("connect", function(client) print ("connected") end)
     mqttBroker:on("offline", reconn)
+    mqttBroker:on("message", function(client, topic, data) 
+        print(topic .. ":" ) 
+        if data ~= nil then
+            print(data)
+            messageReceive = 0
+        end
+    end)
     
     -- Connect to the Broker
     conn()
 end
 
-function main()
-    discover = nodeID
-    
-    pubEvent(discover, topic3)
-
+function main()    
+    repeat
+        pubEvent(nodeID, discoverTopic)
+    until messageReceive ~= 0
 end
