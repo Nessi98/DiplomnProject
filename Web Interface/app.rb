@@ -1,13 +1,18 @@
+require 'rubygems'
 require 'sinatra'
 require 'mqtt'
-require "sinatra/reloader" if development?
+require 'sinatra/reloader' if development?
 
-client = MQTT::Client.new
-client.host = '127.0.0.1'
-client.ssl = true
-client.username = 'mosquitto'
-client.pasword = 'password'
-client.connect()
+#client = MQTT::Client.new
+#client.host = '127.0.0.1'
+#client.ssl = true
+#client.username = 'mosquitto'
+#client.password = 'password'
+#client.connect(host)
+
+MQTT::Client.connect('127.0.0.1') do |client|
+	client.publish('hello', 'message')
+end
 
 get '/' do
     # load these from the db
