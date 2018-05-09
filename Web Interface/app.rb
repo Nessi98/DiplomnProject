@@ -3,19 +3,23 @@ require 'sinatra'
 require 'mqtt'
 require 'sinatra/reloader' if development?
 
-#client = MQTT::Client.new
+set :bind, '0.0.0.0'
+
+client = MQTT::Client.new(:host => '127.0.0.1', :username => 'mosquitto', :password => 'password',  :keep_alive => 120)
+client.connect
 #client.host = '127.0.0.1'
 #client.ssl = true
 #client.username = 'mosquitto'
 #client.password = 'password'
-#client.connect(host)
+#client.connect('127.0.0.1', 1883, 1200)
 
-MQTT::Client.connect('127.0.0.1') do |client|
-	client.publish('hello', 'message')
-end
+#MQTT::Client.connect('127.0.0.1') do |client|
+#	client.publish('hello', 'message')
+#end
 
 get '/' do
     # load these from the db
+  client.publish('/system_name/server', 'hello', false, 1)
   @sensors = [
     {
       name: 'Living room',
