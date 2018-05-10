@@ -1,7 +1,7 @@
-#include <assert.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <sqlite3.h>
 
 #include "MQTTClient.h"
 #include "MQTTClientPersistence.h"
@@ -11,14 +11,18 @@
 #define PAYLOAD     "001"
 #define QOS         2	
 #define TIMEOUT     10000L
+
+// Message headers
+#define SERVER		"/system_name/server"
 #define CONFIG		"/config"
 #define DATA		"/data"
 #define ACKNOWLEDGE "/config_ack"
 #define SYSTEM		"/system_name/"
 #define DISCOVER	"/system_name/discover"
+#define IDLEMESSAGE "op_Mode: IDLE; sleep_time: 50000"
 
+static MQTTClient client;
 volatile MQTTClient_deliveryToken deliveredtoken;
-MQTTClient client;
 
 void delivered(void *context, MQTTClient_deliveryToken dt){
     printf("Message with token value %d delivery confirmed\n", dt);
@@ -51,7 +55,7 @@ void subscribeForSensorUnit(char* discover){
 	memcpy(configAckTopic + systemLen, discover, discoverLen);
 	memcpy(configAckTopic + systemLen + discoverLen, ACKNOWLEDGE, ackLen + 1);
 	
-	int rc = MQTTClient_subscribe(client, configAckTopic, QOS);
+	int rc = MQTTClient_subscribe(&client, configAckTopic, QOS);
 	printf("Status: %d\n", rc);
 	if(rc == 0){
 		printf("Subscribe for topic %s successful\n", configAckTopic);
@@ -65,7 +69,7 @@ void subscribeForSensorUnit(char* discover){
 	memcpy(configTopic + systemLen, discover, discoverLen);
 	memcpy(configTopic + systemLen + discoverLen, CONFIG, configLen + 1);
 	
-	pubmsg.payload = "op_Mode: IDLE";
+	pubmsg.payload = IDLEMESSAGE;
     pubmsg.payloadlen = strlen(pubmsg.payload);
     pubmsg.qos = QOS;
     pubmsg.retained = 0;
@@ -83,6 +87,33 @@ void subscribeForSensorUnit(char* discover){
 
 void loadDataToDB(char* dataMessage){
 	// load sensor data to the db
+}
+
+static int callback(void *NotUsed, int argc, char **argv, char **azColName) {
+   int i;
+   for(i = 0; i < argc; i++) {
+      printf("%s = %s\n", azColName[i], argv[i] ? argv[i] : "NULL");
+   }
+   printf("\n");
+   return 0;
+}
+
+void loadDataToServer(){
+	sqlite3 *db;
+	char *errMsg = 0;
+	
+	int rc = sqlite3_open("automation.db", &db);
+	
+	if(rc){
+		printf("Failed to open\n");
+	}else{
+		char* sql = "SELECT name FROM SensorUnits WHERE opMode != 'IDLE';";
+		
+		printf("Automation db openned!\n");
+		rc = sqlite3_exec(db, sql, callback, 0, &errMsg);
+	}
+	
+	sqlite3_close(db);
 }
 
 int messageArrived(void *context, char *topicName, int topicLen, MQTTClient_message *message){
@@ -108,6 +139,8 @@ int messageArrived(void *context, char *topicName, int topicLen, MQTTClient_mess
 		loadDataToDB(message->payload);
 	}else if(strstr(topicName, ACKNOWLEDGE) != NULL){
 		
+	}else if(strstr(topicName, SERVER) != NULL){
+		loadDataToServer();
 	}
 	
     MQTTClient_freeMessage(&message);
@@ -128,8 +161,7 @@ int main(int argc, char* argv[]){
 	int rc;
 	char* username = "mosquitto"; 
 	char* password = "password";
-	char* discover = "/system_name/discover";	
-	char* config = "/system_name/001/config";
+
 	
 	MQTTClient_deliveryToken token;
 	MQTTClient_message pubmsg = MQTTClient_message_initializer;
@@ -151,17 +183,17 @@ int main(int argc, char* argv[]){
         exit(-1);
     }
 	
-	printf("Connection success\n");
+	printf("Successful conntection with the Brocker.\n");
 	
-    pubmsg.payload = config;
-    pubmsg.payloadlen = strlen(config);
-    pubmsg.qos = QOS;
-    pubmsg.retained = 0;
 	
-	//subscribeForSensorUnit(client, "001");
-	rc = MQTTClient_subscribe(client, discover, QOS);
+	rc = MQTTClient_subscribe(client, DISCOVER, QOS);
 	if(rc == 0){
-		printf("Subscribe for topic %s successful\n", discover);
+		printf("Subscribed for topic %s successful\n", DISCOVER);
+	}
+	
+	rc = MQTTClient_subscribe(client, SERVER, QOS);
+	if(rc == 0){
+		printf("Subscribed for topic %s successful\n", SERVER);
 	}
     
 	while(1){}
