@@ -22,6 +22,7 @@
 #define IDLEMESSAGE "op_Mode: IDLE; sleep_time: 50000"
 
 static MQTTClient client;
+
 volatile MQTTClient_deliveryToken deliveredtoken;
 
 void delivered(void *context, MQTTClient_deliveryToken dt){
@@ -91,15 +92,26 @@ void loadDataToDB(char* dataMessage){
 
 static int callback(void *NotUsed, int argc, char **argv, char **azColName) {
    int i;
+   int len = 0;
+   char* unitName = malloc(strlen(argv[1]) + 1);
+   char* unitTemp;
+   
+
+
    for(i = 0; i < argc; i++) {
       printf("%s = %s\n", azColName[i], argv[i] ? argv[i] : "NULL");
+	  if(strstr(azColName[i], "name")  != NULL) {
+		printf("Col = name\n");
+		//strcpy(message, argv[i]);
+	  }
    }
-   printf("\n");
+   //printf("Message : %s\n", message);
    return 0;
 }
 
 void loadDataToServer(){
 	sqlite3 *db;
+	sqlite3_stmt *stmt;
 	char *errMsg = 0;
 	
 	int rc = sqlite3_open("automation.db", &db);
@@ -107,11 +119,35 @@ void loadDataToServer(){
 	if(rc){
 		printf("Failed to open\n");
 	}else{
-		char* sql = "SELECT name FROM SensorUnits WHERE opMode != 'IDLE';";
+		printf("Performing query...\n");
+		sqlite3_prepare_v2(db, "select * from SensorUnit", -1, &stmt, NULL);
 		
-		printf("Automation db openned!\n");
-		rc = sqlite3_exec(db, sql, callback, 0, &errMsg);
+		printf("Got results:\n");
+		while (sqlite3_step(stmt) != SQLITE_DONE) {
+			int i;
+			int num_cols = sqlite3_column_count(stmt);
+			
+			for (i = 0; i < num_cols; i++)
+			{
+				switch (sqlite3_column_type(stmt, i))
+				{
+				case (SQLITE3_TEXT):
+					printf("%s, ", sqlite3_column_text(stmt, i));
+					break;
+				case (SQLITE_INTEGER):
+					printf("%d, ", sqlite3_column_int(stmt, i));
+					break;
+				case (SQLITE_FLOAT):
+					printf("%g, ", sqlite3_column_double(stmt, i));
+					break;
+				default:
+					break;
+				}
+			}
+			printf("\n");
+		}
 	}
+	sqlite3_finalize(stmt);
 	
 	sqlite3_close(db);
 }
