@@ -2,6 +2,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <sqlite3.h>
+#include <math.h>
 
 #include "MQTTClient.h"
 #include "MQTTClientPersistence.h"
@@ -21,6 +22,8 @@
 #define DISCOVER	"/system_name/discover"
 #define IDLEMESSAGE "op_Mode: IDLE; sleep_time: 50000"
 
+#define QUERY "SELECT temp, hum FROM Data Where unitID = %d ORDER BY time DESC LIMIT 1"
+
 static MQTTClient client;
 
 volatile MQTTClient_deliveryToken deliveredtoken;
@@ -28,6 +31,27 @@ volatile MQTTClient_deliveryToken deliveredtoken;
 void delivered(void *context, MQTTClient_deliveryToken dt){
     printf("Message with token value %d delivery confirmed\n", dt);
     deliveredtoken =  dt;
+}
+
+void publishMessage(char* message, char* topic){
+	
+	int rc;
+	
+	MQTTClient_message pubmsg = MQTTClient_message_initializer;
+	MQTTClient_deliveryToken token;
+	
+	pubmsg.payload = message;
+    pubmsg.payloadlen = strlen(pubmsg.payload);
+    pubmsg.qos = QOS;
+    pubmsg.retained = 0;
+	
+	MQTTClient_publishMessage(client, topic, &pubmsg, &token);
+    printf("Waiting for up to %d seconds for publication of %s\n"
+            "on topic %s for client with ClientID: %s\n",
+            (int)(TIMEOUT/500), pubmsg.payload, topic, CLIENTID);
+    rc = MQTTClient_waitForCompletion(client, token, TIMEOUT);
+	
+	printf("Message with delivery token %d delivered\n", token);
 }
 
 void subscribeForSensorUnit(char* discover){
@@ -70,18 +94,7 @@ void subscribeForSensorUnit(char* discover){
 	memcpy(configTopic + systemLen, discover, discoverLen);
 	memcpy(configTopic + systemLen + discoverLen, CONFIG, configLen + 1);
 	
-	pubmsg.payload = IDLEMESSAGE;
-    pubmsg.payloadlen = strlen(pubmsg.payload);
-    pubmsg.qos = QOS;
-    pubmsg.retained = 0;
-	
-	MQTTClient_publishMessage(client, configTopic, &pubmsg, &token);
-    printf("Waiting for up to %d seconds for publication of %s\n"
-            "on topic %s for client with ClientID: %s\n",
-            (int)(TIMEOUT/500), pubmsg.payload, configTopic, CLIENTID);
-    rc = MQTTClient_waitForCompletion(client, token, TIMEOUT);
-	
-	printf("Message with delivery token %d delivered\n", token);
+	publishMessage(IDLEMESSAGE, configTopic);
 	
 	free(configTopic);
 }
@@ -90,65 +103,85 @@ void loadDataToDB(char* dataMessage){
 	// load sensor data to the db
 }
 
-static int callback(void *NotUsed, int argc, char **argv, char **azColName) {
-   int i;
-   int len = 0;
-   char* unitName = malloc(strlen(argv[1]) + 1);
-   char* unitTemp;
-   
-
-
-   for(i = 0; i < argc; i++) {
-      printf("%s = %s\n", azColName[i], argv[i] ? argv[i] : "NULL");
-	  if(strstr(azColName[i], "name")  != NULL) {
-		printf("Col = name\n");
-		//strcpy(message, argv[i]);
-	  }
-   }
-   //printf("Message : %s\n", message);
-   return 0;
-}
 
 void loadDataToServer(){
-	sqlite3 *db;
-	sqlite3_stmt *stmt;
-	char *errMsg = 0;
 	
+	sqlite3 *db;
+	sqlite3_stmt *stmt, *stmt2;
+	
+	int size = 1;
+	
+	char* comma = ",";
+	char* message = (char*) malloc (size);
+	
+	int len;
+	int count;
 	int rc = sqlite3_open("automation.db", &db);
 	
 	if(rc){
 		printf("Failed to open\n");
 	}else{
 		printf("Performing query...\n");
-		sqlite3_prepare_v2(db, "select * from SensorUnit", -1, &stmt, NULL);
+		sqlite3_prepare_v2(db, "SELECT name, id from SensorUnit WHERE opMode != 'IDLE'", -1, &stmt, NULL);
 		
 		printf("Got results:\n");
 		while (sqlite3_step(stmt) != SQLITE_DONE) {
-			int i;
-			int num_cols = sqlite3_column_count(stmt);
-			
-			for (i = 0; i < num_cols; i++)
-			{
-				switch (sqlite3_column_type(stmt, i))
+
+			int col_num = sqlite3_column_count(stmt);
+
+			for (count = 0; count < col_num; count ++){
+				
+				switch (sqlite3_column_type(stmt, count))
 				{
-				case (SQLITE3_TEXT):
-					printf("%s, ", sqlite3_column_text(stmt, i));
+				case(SQLITE3_TEXT):
+				
+					len = strlen(sqlite3_column_text(stmt, count)) + 1;
+					size += len;
+					
+					message = (char*) realloc (message, size);
+					memcpy(message + size - (len + 1), sqlite3_column_text(stmt, count), len);
+					memcpy(message + size - 2, comma, 2);
+					printf("Unit Name = %s\n", sqlite3_column_text(stmt, count));
+					
 					break;
-				case (SQLITE_INTEGER):
-					printf("%d, ", sqlite3_column_int(stmt, i));
-					break;
-				case (SQLITE_FLOAT):
-					printf("%g, ", sqlite3_column_double(stmt, i));
-					break;
-				default:
+				
+				case(SQLITE_INTEGER): ;
+
+					char* statement = malloc (strlen(QUERY) + 10);
+					sprintf(statement, QUERY, sqlite3_column_int(stmt, count));
+					
+					printf("Statement = %s\n", statement);
+					
+					sqlite3_prepare_v2(db, statement, -1, &stmt2, NULL);
+					
+					while(sqlite3_step(stmt2) != SQLITE_DONE) {
+						
+						int tempLen = strlen(sqlite3_column_text(stmt2, 0)); 
+						int humLen = strlen(sqlite3_column_text(stmt2, 1));
+						
+						size += tempLen + humLen + 2 * strlen(comma);
+						message = (char*) realloc (message, size);
+						
+						memcpy(message + size - (tempLen + humLen + 3), sqlite3_column_text(stmt2, 0), tempLen); 
+						memcpy(message + size - (humLen + 3), comma, 1);
+						memcpy(message + size - (humLen + 2), sqlite3_column_text(stmt2, 1), humLen); 
+						memcpy(message + size - 2, comma, 2); 
+						
+						printf("Temp = %s\n", sqlite3_column_text(stmt2, 0));
+						printf("Hum = %s\n", sqlite3_column_text(stmt2, 1));
+					}
+					printf("Unit id = %d\n", sqlite3_column_int(stmt, count));
 					break;
 				}
+			printf("Message = %s\n", message);
 			}
-			printf("\n");
 		}
 	}
 	sqlite3_finalize(stmt);
 	
+	publishMessage(message, SERVER);
+	
+	free(message);
 	sqlite3_close(db);
 }
 

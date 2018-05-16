@@ -5,21 +5,23 @@ require 'sinatra/reloader' if development?
 
 set :bind, '0.0.0.0'
 
+serverTopic = '/system_name/server'
+
 client = MQTT::Client.new(:host => '127.0.0.1', :username => 'mosquitto', :password => 'password',  :keep_alive => 120)
 client.connect
-#client.host = '127.0.0.1'
-#client.ssl = true
-#client.username = 'mosquitto'
-#client.password = 'password'
-#client.connect('127.0.0.1', 1883, 1200)
+client.subscribe(serverTopic)
 
-#MQTT::Client.connect('127.0.0.1') do |client|
-#	client.publish('hello', 'message')
+#client.get do |serverTpoic, message|
+#	puts message
 #end
 
 get '/' do
-    # load these from the db
+  # load these from the db
   client.publish('/system_name/server', 'hello', false, 1)
+  
+  serverTopic, message = client.get
+  print message, serverTopic
+  
   @sensors = [
     {
       name: 'Living room',
