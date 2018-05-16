@@ -6,10 +6,14 @@ require 'sinatra/reloader' if development?
 set :bind, '0.0.0.0'
 
 serverTopic = '/system_name/server'
+serverAck = '/system_name/server_ack'
 
 client = MQTT::Client.new(:host => '127.0.0.1', :username => 'mosquitto', :password => 'password',  :keep_alive => 120)
 client.connect
+
 client.subscribe(serverTopic)
+#client.publish(serverAck, 'Hello from the server side', false, 1)  
+
 
 #client.get do |serverTpoic, message|
 #	puts message
@@ -17,33 +21,22 @@ client.subscribe(serverTopic)
 
 get '/' do
   # load these from the db
-  client.publish('/system_name/server', 'hello', false, 1)
   
+  client.publish(serverAck, 'Some text', false, 1)
+
   serverTopic, message = client.get
-  print message, serverTopic
   
-  @sensors = [
-    {
-      name: 'Living room',
-      temp: '24.5 °C',
-      hum: '41.5 %'
-    },
-    {
-      name: 'Bathroom',
-      temp: '24 °C',
-      hum: '50 %' 
-    },
-    {
-      name: 'Kitchen',
-      temp: '22 °C',
-      hum: '40.5 %'
-    },
-    {
-      name: 'Sensor 004',
-      temp: '22 °C',
-      hum: '40.5 %'
-    },
-  ]
+  puts message.split(",")
+  message.each do |count|  
+    @sensors = [
+      {
+        name: message[count],
+        temp: message[count + 1],
+        hum: message[count+2]
+      },
+    ]
+    count += 2
+  end
   erb :index
 end
 

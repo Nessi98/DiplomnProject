@@ -15,6 +15,7 @@
 
 // Message headers
 #define SERVER		"/system_name/server"
+#define SERVERACK	"/system_name/server_ack"
 #define CONFIG		"/config"
 #define DATA		"/data"
 #define ACKNOWLEDGE "/config_ack"
@@ -208,7 +209,7 @@ int messageArrived(void *context, char *topicName, int topicLen, MQTTClient_mess
 		loadDataToDB(message->payload);
 	}else if(strstr(topicName, ACKNOWLEDGE) != NULL){
 		
-	}else if(strstr(topicName, SERVER) != NULL){
+	}else if(strstr(topicName, SERVERACK) != NULL){
 		loadDataToServer();
 	}
 	
@@ -260,7 +261,7 @@ int main(int argc, char* argv[]){
 		printf("Subscribed for topic %s successful\n", DISCOVER);
 	}
 	
-	rc = MQTTClient_subscribe(client, SERVER, QOS);
+	rc = MQTTClient_subscribe(client, SERVERACK, QOS);
 	if(rc == 0){
 		printf("Subscribed for topic %s successful\n", SERVER);
 	}
