@@ -21,6 +21,7 @@ get '/' do
 
   serverTopic, message = client.get
   data = message.split(",")
+ 
   count = 0 
   i = 0
 
@@ -32,10 +33,12 @@ get '/' do
     case  
     when count == 0
 	names[i] = d
-	puts names
+	puts "Array of names", names
+	count += 1
     when count == 1
 	temps[i] = d
 	puts temps
+	count += 1
     else
 	hums[i] = d
 	puts hums
@@ -46,9 +49,14 @@ get '/' do
   count = 0
 
   @sensors = Array.new
-  until count >= i do
+  while count < i do
+    puts names[count]
     @sensors << { :name => names[count], :temp => temps[count], :hum => hums[count]}
+    count += 1
   end
+
+  puts @sensors[0]
+
   erb :index
 end
 
