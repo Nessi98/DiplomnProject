@@ -14,28 +14,40 @@ client.connect
 client.subscribe(serverTopic)
 #client.publish(serverAck, 'Hello from the server side', false, 1)  
 
-
-#client.get do |serverTpoic, message|
-#	puts message
-#end
-
 get '/' do
   # load these from the db
   
   client.publish(serverAck, 'Some text', false, 1)
 
   serverTopic, message = client.get
+  data = message.split(",")
+  count = 0 
+  i = 0
+
+  names = []
+  temps = []
+  hums = []
+  data.each do |d|
   
-  puts message.split(",")
-  message.each do |count|  
-    @sensors = [
-      {
-        name: message[count],
-        temp: message[count + 1],
-        hum: message[count+2]
-      },
-    ]
-    count += 2
+    case  
+    when count == 0
+	names[i] = d
+	puts names
+    when count == 1
+	temps[i] = d
+	puts temps
+    else
+	hums[i] = d
+	puts hums
+	count = 0
+	i += 1
+    end
+  end
+  count = 0
+
+  @sensors = Array.new
+  until count >= i do
+    @sensors << { :name => names[count], :temp => temps[count], :hum => hums[count]}
   end
   erb :index
 end
