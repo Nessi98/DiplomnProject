@@ -1,126 +1,100 @@
 <div class="row" style="text-align: center; padding-top: 30px">
-  <button type="button" class="btn btn-primary">Daily</button>
-  <button type="button" class="btn">Monthly</button>
-  <button type="button" class="btn">Yearly</button>
-  <h3>Statistics for: 14 March 2018</h3>
+	<button type="button" class="btn btn-primary">Daily</button>
+	<button type="button" class="btn">Monthly</button>
+	<button type="button" class="btn">Yearly</button>
+	<h3> Statistics for: 14 March 2018</h3>
 </div>
 
 <div class="row" style="padding-top: 10px">
-  <div>
-    <div class="row" style="text-align: center">
-      <div class="span8">
-        <canvas id="TemperatureLineChart" ></canvas>
-      </div>
+	<div>
+		<div class="row" style="text-align: center">
+			<div class="span8">
+				<canvas id="TemperatureLineChart" ></canvas>
+			</div>
 
-      <div class="span8">
-        <canvas id="HumidityLineChart" ></canvas>
-      </div>
+		<div class="span8">
+			<canvas id="HumidityLineChart" ></canvas>
+		</div>
     </div>
-  </div>
+</div>
 
-  <script type="text/javascript">
-    var randomScalingFactor = function() {
-      return Math.round(Math.random() * 100);
+<script type="text/javascript">
+	var randomScalingFactor = function() {
+		return Math.round(Math.random() * 100);
     };
-    window.chartColors = {
-      red: 'rgb(255, 99, 132)',
-      orange: 'rgb(255, 159, 64)',
-      yellow: 'rgb(255, 205, 86)',
-      green: 'rgb(75, 192, 192)',
-      blue: 'rgb(54, 162, 235)',
-      purple: 'rgb(153, 102, 255)',
-      grey: 'rgb(201, 203, 207)'
+
+	window.chartColors = {
+		red: 'rgb(255, 99, 132)',
+		orange: 'rgb(255, 159, 64)',
+		yellow: 'rgb(255, 205, 86)',
+		green: 'rgb(75, 192, 192)',
+		blue: 'rgb(54, 162, 235)',
+		purple: 'rgb(153, 102, 255)',
+		grey: 'rgb(201, 203, 207)'
     };
     var HOURS = ['8:00', '9:00', '10:00', '11:00', '12:00', '13:00', '14:00', '15:00', '16:00', '17:00', '18:00', '19:00', '20:00', '21:00'];
 
     window.onload = function() {
-      var configTemperature = {
+		var configTemperature = {
         type: 'line',
         data: {
           labels: HOURS,
-            datasets: [{
-              label: '',
-              backgroundColor: window.chartColors.blue,
-              borderColor: window.chartColors.blue,
-              data: [{
-                x: 10,
-                y: 24
-              }, {
-                x: 15,
-                y: 24
-              }, {
-                x: 20,
-                y: 23.5
-              }, {
-                x: 25,
-                y: 23
-              }, {
-                x: 30,
-                y: 22.5
-              }, {
-                x: 35,
-                y: 22
-              }, {
-                x: 40,
-                y: 21.5
-              }, {
-                x: 45,
-                y: 21
-              }, {
-                x: 50,
-                y: 20.5
-              }, {
-                x: 55,
-                y: 19.5
-              }, {
-                x: 60,
-                y: 21.5
-              }, {
-                x: 65,
-                y: 22
-              },{
-                x: 70,
-                y: 23.5
-              }, {
-                x: 75,
-                y: 24
-              }],
+            datasets: [
+			<% @sensorsData.each do |unit| %>
+			{
+				label: '',
+				backgroundColor: window.chartColors.blue,
+				borderColor: window.chartColors.blue,
+				
+				data: [
+					<% @unit.each do |point| %>
+					{
+						x: <%= point.temp %>,
+						y: <%= point.time %>
+					},
+					<% end %>
+				]
               fill: false,
-            }]
+            },
+			<% end %>
+			]
         },
         options: {
-          responsive: true,
+			responsive: true,
             title: {
-              display: true,
+				display: true,
                 text: 'Temperature'
             },
+			
             tooltips: {
-              mode: 'index',
+				mode: 'index',
                 intersect: false,
             },
+			
             hover: {
-              mode: 'nearest',
+				mode: 'nearest',
                 intersect: true,
             },
+			
             scales: {
-              xAxes: [{
-                display: true,
-              }],
+				xAxes: [{
+					display: true,
+				}],
                 yAxes: [{
-                  display: true,
-                  scaleLabel: {
-                    display: true,
-                      labelString: 'Temperature'
-                  }
+					display: true,
+					scaleLabel: {
+						display: true,
+						labelString: 'Temperature'
+					}
                 }]
             }
         }
-      };
+    };
 
-      var configHumidity = {
-        type: 'line',
+    var configHumidity = {
+		type: 'line',
         data: {
-          labels: HOURS,
+			labels: HOURS,
             datasets: [{
               label: '',
               backgroundColor: window.chartColors.purple,
