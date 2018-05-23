@@ -27,13 +27,17 @@
 #define REALTIMEMESSAGE "Real Time"
 #define CONFIGMESSAGE	"Config"
 
-#define QUERY "SELECT temp, hum FROM Data Where unitID = %d ORDER BY time DESC LIMIT 1"
+#define QUERY 			"SELECT temp, hum FROM Data Where unitID = %d ORDER BY time DESC LIMIT 1"
+#define UNITEXISTENCE	"SELECT name FROM SensorUnit WHERE id = %s"
+#define INSERTMESSAGE	"INSER INTO Data (unitID, temp, hum, time) VALUES (%d, %s, %s, %s)"
 
 static MQTTClient client;
 
 volatile MQTTClient_deliveryToken deliveredtoken;
 
-void loadDataToDB(char* dataMessage);
+int unitExist(char* id);
+void createRecordInDB(char* unitID);
+void loadDataToDB(int unitID, char* dataMessage);
 void loadDataToServer(char * serverMessage);
 
 void connlost(void *context, char *cause);
@@ -81,12 +85,14 @@ int main(int argc, char* argv[]){
 	if(rc == 0){
 		printf("Subscribed for topic %s successful\n", SERVER);
 	}
+	
+	loadDataToDB(1, "24.5, 48%, 2018/11/24 15:45:78");
     
 	while(1){}
 	
     MQTTClient_disconnect(client, 10000);
     MQTTClient_destroy(&client);
-	 
+	
 	return rc;
 }
 
@@ -117,10 +123,14 @@ int messageArrived(void *context, char *topicName, int topicLen, MQTTClient_mess
 	
 	if(strstr(topicName, DISCOVER) != NULL){
 		//check if the arrieved discover already exist in the db
-		// if not wirte it to the db and subscribe
-		subscribeForSensorUnit(message->payload);
+		if(!unitExist(message->payload)){
+			createRecordInDB(message->payload);
+			subscribeForSensorUnit(message->payload);
+		}else{
+			printf("Record already exitst in the DB!\n");
+		}
 	}else if(strstr(topicName, DATA) != NULL){
-		loadDataToDB(message->payload);
+		loadDataToDB(1, message->payload);
 	}else if(strstr(topicName, ACKNOWLEDGE) != NULL){
 		
 	}else if(strstr(topicName, SERVERACTION) != NULL){
@@ -132,6 +142,48 @@ int messageArrived(void *context, char *topicName, int topicLen, MQTTClient_mess
 	
 	
     return 1;
+}
+
+void createRecordInDB(char* unitID){
+	
+}
+
+int unitExist(char* id){
+	
+	sqlite3 *db;
+	sqlite3_stmt *stm;
+	
+	int result = 0;
+	int rc = sqlite3_open("automation.db", &db);
+	
+	if(rc){
+		printf("Filed to open the DB.\n");
+		result = 1;
+	}
+	
+	char query[strlen(UNITEXISTENCE) + strlen(id) + 1];
+	sprintf(query, UNITEXISTENCE, id);
+
+	sqlite3_prepare_v2(db, query, -1, &stm, NULL);
+	
+	int count;
+	
+	while(sqlite3_step(stm) != SQLITE_DONE) {
+
+		int col_num = sqlite3_column_count(stm);
+		for (count = 0; count < col_num; count ++){
+			result = 1;
+			printf("There is sensor unit with id = %s\n", id);
+			
+			break;
+		}
+	}
+	
+	sqlite3_finalize(stm);
+	
+	sqlite3_close(db);
+	
+	return result;
 }
 
 void loadDataToServer(char* serverMessage){
@@ -180,7 +232,7 @@ void loadDataToServer(char* serverMessage){
 	}
 		
 	printf("Got results:\n");
-	while (sqlite3_step(stmt) != SQLITE_DONE) {
+	while(sqlite3_step(stmt) != SQLITE_DONE) {
 
 		int col_num = sqlite3_column_count(stmt);
 
@@ -242,8 +294,32 @@ void loadDataToServer(char* serverMessage){
 	sqlite3_close(db);
 }
 
-void loadDataToDB(char* dataMessage){
-	// load sensor data to the db
+void loadDataToDB(int unitID, char* dataMessage){
+	
+	sqlite3 *db;
+	sqlite3_stmt *stmt, *stmt2;
+
+	int rc = sqlite3_open("automation.db", &db);
+	
+	if(rc){
+		printf("Failed to open\n");
+	}else{
+		//char* query = malloc(strlen(INSERTMESSAGE) + strlen(dataMessage) + 2);
+		char* token;
+		
+		token = strtok(dataMessage, ", ");
+		while(token != NULL){
+			printf("%s\n", token);	
+			token = strtok(NULL, ", ");
+		}
+		//sprintf(query, INSERTMESSAGE, unitID, temp, hum, time);
+		
+		//printf("Query = %s\n", query);
+		
+		//free(query);
+	}
+	
+	sqlite3_close(db);
 }
 
 void publishMessage(char* message, char* topic){
@@ -294,7 +370,7 @@ void subscribeForSensorUnit(char* discover){
 	memcpy(configAckTopic + systemLen + discoverLen, ACKNOWLEDGE, ackLen + 1);
 	
 	int rc = MQTTClient_subscribe(&client, configAckTopic, QOS);
-	printf("Status: %d\n", rc);
+	printf("Topic: %s\n", configAckTopic);
 	if(rc == 0){
 		printf("Subscribe for topic %s successful\n", configAckTopic);
 	}
