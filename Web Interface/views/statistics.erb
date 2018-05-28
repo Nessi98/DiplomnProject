@@ -38,25 +38,25 @@
 		var configTemperature = {
         type: 'line',
         data: {
-          labels: HOURS,
+           // labels: HOURS,
             datasets: [
-			<% @sensorsData.each do |unit| %>
-			{
-				label: '',
-				backgroundColor: window.chartColors.blue,
-				borderColor: window.chartColors.blue,
-				
-				data: [
-					<% @unit.each do |point| %>
-					{
-						x: <%= point.temp %>,
-						y: <%= point.time %>
-					},
-					<% end %>
-				]
-              fill: false,
-            },
-			<% end %>
+				<% @sensorsData.each do |unit| %>
+				{
+					label: '',
+					fill: false,
+					backgroundColor: window.chartColors.blue,
+					borderColor: window.chartColors.blue,
+					
+					data: [
+						<% unit[:dataPoints].each do |point| %>
+						{
+							y: <%= point[:temp] %>,
+							x: <%= point[:time] %>
+						},
+						<% end %>
+					],
+				},
+				<% end %>
 			]
         },
         options: {

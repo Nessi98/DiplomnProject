@@ -52,7 +52,7 @@ get '/' do
 		@sensors << { :name => nameArr[count], :temp => tempArr[count], :hum => humArr[count]}
 		count += 1
 	end
-
+	puts "PATE"
 	erb :index
 end
 
@@ -69,22 +69,20 @@ get '/statistics' do
 		#end
 	end
 	
-	@sensorsData = [
-	{
+	@sensorsData = [{
 		sensorName: 'Kitchen',
 		sensorColor: 'blue',
 		
 		dataPoints: [{
 			temp: 15.7,
-			time: '9:35'
+			time: 9
 		},
 		{
 			temp: 16.9,
-			time: '9:42'
+			time: 10
 		},
 		]
-	},
-	]
+	}]
 	
 	erb :statistics
 end
@@ -130,6 +128,15 @@ get '/config' do
 		@sensors << { :name => nameArr[counter], :enabled => enabledArr[counter], :op_Mode => opModeArr[counter]}
 		counter += 1
 	end
+	
+	puts @sensors
 
 	erb :config
 end
+
+
+get '/sensor' do
+	puts "sensor #{params[:name]} has been #{params[:mode]}"
+	redirect "/config"
+end
+	

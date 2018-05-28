@@ -2,20 +2,20 @@
   <h3>Available sensor units</h3>
 </div>
 <% @sensors.each do |sensor| %>
+  <div class="span2" style="padding: 10px 0 0 70px; font-size: 18px;">
+    <%= sensor[:name] %>
+  </div>
   <div class="row" style="padding: 10px 20px;">
-    <div class="span2">
+    <div class="span8">
       <div class="btn-group" data-toggle="buttons-radio">
-        <button type="button" class=" <%= if sensor[:enabled] then 'active' else '' end %> btn ">On</button>
-        <button type="button" class=" <%= if !sensor[:enabled] then 'active' else '' end %> btn ">Off</button>
-
+        <a href="/sensor?name=<%= sensor[:name] %>&mode=enabled" class=" <%= if sensor[:enabled] then 'active' else '' end %> btn ">On</a>
+        <a href="/sensor?name=<%= sensor[:name] %>&mode=disabled"  class=" <%= if !sensor[:enabled] then 'active' else '' end %> btn ">Off</a>
+      </div>
+	  <div class="btn-group" data-toggle="buttons-radio">
         <button type="button" class=" <%= if sensor[:op_mode] == 'sensor' then 'active' else '' end %> btn "> Sensor</button>
         <button type="button" class=" <%= if sensor[:op_mode] == 'relay' then 'active' else '' end %> btn "> Relay</button>
         <button type="button" class=" <%= if sensor[:op_mode] == 'sensor and relay' then 'active' else '' end %> btn "> Sensor And Relay</button>
       </div>
-    </div>
-
-    <div class="span8" style="padding: 5px 0 0 70px; font-size: 18px;">
-      <%= sensor[:name] %>
     </div>
   </div>
 <% end %>

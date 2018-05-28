@@ -29,7 +29,7 @@
 
 #define QUERY 			"SELECT temp, hum FROM Data Where unitID = %d ORDER BY time DESC LIMIT 1"
 #define UNITEXISTENCE	"SELECT name FROM SensorUnit WHERE id = %s"
-#define INSERTMESSAGE	"INSER INTO Data (unitID, temp, hum, time) VALUES (%d, %s, %s, %s)"
+#define INSERTMESSAGE	"INSER INTO Data (unitID, temp, hum, time) VALUES (%d, '%s', '%s', '%s')"
 
 static MQTTClient client;
 
@@ -37,7 +37,7 @@ volatile MQTTClient_deliveryToken deliveredtoken;
 
 int unitExist(char* id);
 void createRecordInDB(char* unitID);
-void loadDataToDB(int unitID, char* dataMessage);
+void loadDataToDB(int unitID, char* temp, char* hum, char* time);
 void loadDataToServer(char * serverMessage);
 
 void connlost(void *context, char *cause);
@@ -47,7 +47,7 @@ void delivered(void *context, MQTTClient_deliveryToken dt);
 int messageArrived(void *context, char *topicName, int topicLen, MQTTClient_message *message); 
 
 int main(int argc, char* argv[]){
-	
+
 	int rc;
 	char* username = "mosquitto"; 
 	char* password = "password";
@@ -86,7 +86,17 @@ int main(int argc, char* argv[]){
 		printf("Subscribed for topic %s successful\n", SERVER);
 	}
 	
-	loadDataToDB(1, "24.5, 48%, 2018/11/24 15:45:78");
+	char message[] = "24.5,48%,2018/11/24 15:45:35";
+	char* token1;
+		// streln message. malloc newMsg, stpcpy(newMsg, message)
+	token1 = strtok(message, ",");
+	while(token1 != NULL){
+		printf("%s\n", token1);	
+		token1 = strtok(NULL, ",");
+	}
+	
+	loadDataToDB(1, "24", "38%", "2018/11/24 15:45:35");
+	subscribeForSensorUnit("1");
     
 	while(1){}
 	
@@ -130,7 +140,7 @@ int messageArrived(void *context, char *topicName, int topicLen, MQTTClient_mess
 			printf("Record already exitst in the DB!\n");
 		}
 	}else if(strstr(topicName, DATA) != NULL){
-		loadDataToDB(1, message->payload);
+		//loadDataToDB(1, message->payload);
 	}else if(strstr(topicName, ACKNOWLEDGE) != NULL){
 		
 	}else if(strstr(topicName, SERVERACTION) != NULL){
@@ -294,29 +304,22 @@ void loadDataToServer(char* serverMessage){
 	sqlite3_close(db);
 }
 
-void loadDataToDB(int unitID, char* dataMessage){
+void loadDataToDB(int unitID, char* temp, char* hum, char* time){
 	
 	sqlite3 *db;
-	sqlite3_stmt *stmt, *stmt2;
+	sqlite3_stmt *stmt;
 
 	int rc = sqlite3_open("automation.db", &db);
 	
 	if(rc){
 		printf("Failed to open\n");
 	}else{
-		//char* query = malloc(strlen(INSERTMESSAGE) + strlen(dataMessage) + 2);
-		char* token;
+		char* query = malloc(strlen(INSERTMESSAGE) + strlen(temp) + strlen(hum) + strlen(time));
+		sprintf(query, INSERTMESSAGE, unitID, temp, hum, time);
 		
-		token = strtok(dataMessage, ", ");
-		while(token != NULL){
-			printf("%s\n", token);	
-			token = strtok(NULL, ", ");
-		}
-		//sprintf(query, INSERTMESSAGE, unitID, temp, hum, time);
+		printf("Query = %s\n", query);
 		
-		//printf("Query = %s\n", query);
-		
-		//free(query);
+		free(query);
 	}
 	
 	sqlite3_close(db);
@@ -369,7 +372,7 @@ void subscribeForSensorUnit(char* discover){
 	memcpy(configAckTopic + systemLen, discover, discoverLen);
 	memcpy(configAckTopic + systemLen + discoverLen, ACKNOWLEDGE, ackLen + 1);
 	
-	int rc = MQTTClient_subscribe(&client, configAckTopic, QOS);
+	int rc = MQTTClient_subscribe(client, configAckTopic, QOS);
 	printf("Topic: %s\n", configAckTopic);
 	if(rc == 0){
 		printf("Subscribe for topic %s successful\n", configAckTopic);
