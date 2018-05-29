@@ -58,16 +58,30 @@ end
 
 # Sends message to the C client to get data about the senosr unit in the DB
 get '/statistics' do
-	client.publish(serverAction, "Statistics", false, 1)
+
+	@period = params[:period]
+	case @period
+	when 'daily'
+		puts "Publish for daily stats"
+		client.publish(serverAction, "Statistics for the day", false, 1)
+	when 'monthly'
+		puts "publish for monthly stats"
+		client.publish(serverAction, "Statistics for the month", false, 1)
+	when 'yearly'
+		puts "publish for yearly stats"
+		client.publish(serverAction, "Statistics for the year", false, 1)
+	else
+		redirect '/statistics?period=daily'
+	end
 	
 	serverTopic, message = client.get
-	data = message.split(',')
+	#data = message.split(',')
 	
-	data.each do |d|
-		puts d
+	#data.each do |d|
+	#	puts d
 		#data.split(",").each do |d|
 		#end
-	end
+	#end
 	
 	@sensorsData = [{
 		sensorName: 'Kitchen',
@@ -96,6 +110,7 @@ get '/config' do
 	counter = 0
 	sensorCount = 0
 
+	idArr = []
 	nameArr = []
 	opModeArr = []
 	enabledArr = []
@@ -106,6 +121,9 @@ get '/config' do
 
 		case counter
 		when 0
+			idArr[sensorCount] = d
+			counter += 1
+		when 1
 			nameArr[sensorCount] = d
 			counter += 1
 		else
@@ -125,11 +143,11 @@ get '/config' do
 
 	@sensors = Array.new
 	while counter < sensorCount do
-		@sensors << { :name => nameArr[counter], :enabled => enabledArr[counter], :op_Mode => opModeArr[counter]}
+		@sensors << {:id => idArr[counter], :name => nameArr[counter], :enabled => enabledArr[counter], :op_Mode => opModeArr[counter]}
+		#@sensors << { id: 1, :name => nameArr[counter], :enabled => enabledArr[counter], :op_Mode => opModeArr[counter]}
+		
 		counter += 1
 	end
-	
-	puts @sensors
 
 	erb :config
 end
@@ -137,6 +155,7 @@ end
 
 get '/sensor' do
 	puts "sensor #{params[:name]} has been #{params[:mode]}"
+	#puts "sensor #{params[:id]} has been #{params[:mode]}"
 	redirect "/config"
 end
 	

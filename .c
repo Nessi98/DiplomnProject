@@ -23,16 +23,13 @@
 #define SYSTEM			"/system_name/"
 #define DISCOVER		"/system_name/discover"
 
-// Messages
 #define IDLEMESSAGE 	"op_Mode: IDLE; sleep_time: 50000"
 #define REALTIMEMESSAGE "Real Time"
 #define CONFIGMESSAGE	"Config"
 
-// Query For the Database
 #define QUERY 			"SELECT temp, hum FROM Data Where unitID = %d ORDER BY time DESC LIMIT 1"
 #define UNITEXISTENCE	"SELECT name FROM SensorUnit WHERE id = %s"
-#define INSERTMESSAGE	"INSERT INTO Data (unitID, temp, hum, time) VALUES (%d, '%s', '%s', '%s')"
-#define INSERTRECORD	"INSERT INTO SensorUnit (id, name, opMode) VALUES (%d, '%s', '%s')"
+#define INSERTMESSAGE	"INSER INTO Data (unitID, temp, hum, time) VALUES (%d, '%s', '%s', '%s')"
 
 static MQTTClient client;
 
@@ -88,6 +85,18 @@ int main(int argc, char* argv[]){
 	if(rc == 0){
 		printf("Subscribed for topic %s successful\n", SERVER);
 	}
+	
+	char message[] = "24.5,48%,2018/11/24 15:45:35";
+	char* token1;
+		// streln message. malloc newMsg, stpcpy(newMsg, message)
+	token1 = strtok(message, ",");
+	while(token1 != NULL){
+		printf("%s\n", token1);	
+		token1 = strtok(NULL, ",");
+	}
+	
+	loadDataToDB(1, "24", "38%", "2018/11/24 15:45:35");
+	//subscribeForSensorUnit("1");
     
 	while(1){}
 	
@@ -127,21 +136,15 @@ int messageArrived(void *context, char *topicName, int topicLen, MQTTClient_mess
 		if(!unitExist(message->payload)){
 			printf("Record doesn't exist.\n");
 			createRecordInDB(message->payload);
+			MQTTClient_freeMessage(&message);
+    MQTTClient_free(topicName);
 			subscribeForSensorUnit("1");
 			//subscribeForSensorUnit(message->payload);
 		}else{
 			printf("Record already exitst in the DB!\n");
 		}
 	}else if(strstr(topicName, DATA) != NULL){
-		char* token1;
-		
-		token1 = strtok(message->payload, ",");
-		while(token1 != NULL){
-			printf("%s\n", token1);	
-			token1 = strtok(NULL, ",");
-		}
-	
-		loadDataToDB(1, "24", "38%", "2018/11/24 15:45:35");
+		//loadDataToDB(1, message->payload);
 	}else if(strstr(topicName, ACKNOWLEDGE) != NULL){
 		
 	}else if(strstr(topicName, SERVERACTION) != NULL){
@@ -156,34 +159,7 @@ int messageArrived(void *context, char *topicName, int topicLen, MQTTClient_mess
 }
 
 void createRecordInDB(char* unitID){
-	sqlite3 *db;
-	sqlite3_stmt *stm;
 	
-	char opMode[] = "IDLE";
-	char* err_msg = 0;
-	
-	int rc = sqlite3_open("automation.db", &db);
-	
-	if(rc){
-		printf("Filed to open the DB.\n");
-	}
-	
-	printf("Preparing query...\n");
-	char* query = malloc(strlen(INSERTRECORD) + strlen(unitID) + strlen(opMode) + 1);
-	sprintf(query, INSERTRECORD, atoi(unitID), unitID, opMode);
-	
-	printf("Inser record query = %s\n", query);
-	
-	rc = sqlite3_exec(db, query, 0, 0, &err_msg);
-	if (rc != SQLITE_OK ) {
-        
-		fprintf(stderr, "SQL error: %s\n", err_msg);
-		sqlite3_free(err_msg);        
-	}
-	
-	free(query);
-	
-	sqlite3_close(db);
 }
 
 int unitExist(char* id){
@@ -199,7 +175,7 @@ int unitExist(char* id){
 		result = 1;
 	}
 	
-	char* query = malloc(strlen(UNITEXISTENCE) + strlen(id) + 1);
+	char query[strlen(UNITEXISTENCE) + strlen(id) + 1];
 	sprintf(query, UNITEXISTENCE, id);
 
 	sqlite3_prepare_v2(db, query, -1, &stm, NULL);
@@ -216,7 +192,7 @@ int unitExist(char* id){
 			break;
 		}
 	}
-	free(query);
+	
 	sqlite3_finalize(stm);
 	
 	sqlite3_close(db);
@@ -241,13 +217,14 @@ void loadDataToServer(char* serverMessage){
 	
 	if(rc){
 		printf("Failed to open\n");
+		//return -1;
 	}
 	
 	printf("Performing query...\n");
 	if(strstr(serverMessage, REALTIMEMESSAGE) != NULL){
 		sqlite3_prepare_v2(db, "SELECT name, id from SensorUnit WHERE opMode != 'IDLE'", -1, &stmt, NULL);
 	}else if(strstr(serverMessage, CONFIGMESSAGE) != NULL){
-		sqlite3_prepare_v2(db, "SELECT * FROM SensorUnit", -1, &stmt, NULL);
+		sqlite3_prepare_v2(db, "SELECT name, opMode from SensorUnit", -1, &stmt, NULL);
 		flag = 1;
 	}else{
 		int id = 2;
@@ -290,54 +267,36 @@ void loadDataToServer(char* serverMessage){
 				break;
 				
 			case(SQLITE_INTEGER): ;
-				if(flag){
-					char id[5];
-					sprintf(id, "%d", sqlite3_column_int(stmt, count));
-					
-					len = strlen(id) + 1;
-					size += len;
-					
-					message = (char*) realloc (message, size);
-					memcpy(message + size - (len + 1), id, len);
-					memcpy(message + size - 2, comma, 2);
-					
-				}else{
 
-					char* statement = malloc (strlen(QUERY) + 10);
-					sprintf(statement, QUERY, sqlite3_column_int(stmt, count));
-						
-					printf("Statement = %s\n", statement);
-						
-					sqlite3_prepare_v2(db, statement, -1, &stmt2, NULL);
-						
-					while(sqlite3_step(stmt2) != SQLITE_DONE) {
-						
-						char temp[5];
-						char hum[5]; 
-						
-						sprintf(temp, "%0.2f", sqlite3_column_double(stmt2, 0));
-						sprintf(hum, "%0.2f", sqlite3_column_double(stmt2, 1));
-						
-						int tempLen = strlen(temp); 
-						int humLen = strlen(hum);
-						
-						size += tempLen + humLen + 2 * strlen(comma);
-						message = (char*) realloc (message, size);
-							
-						memcpy(message + size - (tempLen + humLen + 3), temp, tempLen); 
-						memcpy(message + size - (humLen + 3), comma, 1);
-						memcpy(message + size - (humLen + 2), hum, humLen); 
-						memcpy(message + size - 2, comma, 2); 
-							
-						printf("Temp = %s\n", temp);
-						printf("Hum = %s\n", hum);
-					}
+				char* statement = malloc (strlen(QUERY) + 10);
+				sprintf(statement, QUERY, sqlite3_column_int(stmt, count));
 					
-					free(statement);
+				printf("Statement = %s\n", statement);
+					
+				sqlite3_prepare_v2(db, statement, -1, &stmt2, NULL);
+					
+				while(sqlite3_step(stmt2) != SQLITE_DONE) {
+						
+					int tempLen = strlen(sqlite3_column_text(stmt2, 0)); 
+					int humLen = strlen(sqlite3_column_text(stmt2, 1));
+					
+					size += tempLen + humLen + 2 * strlen(comma);
+					message = (char*) realloc (message, size);
+						
+					memcpy(message + size - (tempLen + humLen + 3), sqlite3_column_text(stmt2, 0), tempLen); 
+					memcpy(message + size - (humLen + 3), comma, 1);
+					memcpy(message + size - (humLen + 2), sqlite3_column_text(stmt2, 1), humLen); 
+					memcpy(message + size - 2, comma, 2); 
+						
+					printf("Temp = %s\n", sqlite3_column_text(stmt2, 0));
+					printf("Hum = %s\n", sqlite3_column_text(stmt2, 1));
 				}
+				
+				free(statement);
+				
 				printf("Unit id = %d\n", sqlite3_column_int(stmt, count));
 				break;
-			}			
+			}
 		printf("Message = %s\n", message);
 		}
 	}
@@ -353,8 +312,6 @@ void loadDataToDB(int unitID, char* temp, char* hum, char* time){
 	
 	sqlite3 *db;
 	sqlite3_stmt *stmt;
-	
-	char *err_msg = 0;
 
 	int rc = sqlite3_open("automation.db", &db);
 	
@@ -365,14 +322,6 @@ void loadDataToDB(int unitID, char* temp, char* hum, char* time){
 		sprintf(query, INSERTMESSAGE, unitID, temp, hum, time);
 		
 		printf("Query = %s\n", query);
-		
-		rc = sqlite3_exec(db, query, 0, 0, &err_msg);
-		if (rc != SQLITE_OK ) {
-        
-			fprintf(stderr, "SQL error: %s\n", err_msg);
-        
-			sqlite3_free(err_msg);        
-		} 
 		
 		free(query);
 	}
