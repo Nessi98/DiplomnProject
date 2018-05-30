@@ -33,12 +33,15 @@
 #define UNITEXISTENCE	"SELECT name FROM SensorUnit WHERE id = %s"
 #define INSERTMESSAGE	"INSERT INTO Data (unitID, temp, hum, time) VALUES (%d, '%s', '%s', '%s')"
 #define INSERTRECORD	"INSERT INTO SensorUnit (id, name, opMode) VALUES (%d, '%s', '%s')"
+#define UPDATERECORD	"UPDATE SensorUnit SET opMode = %s WHERE id = %d"
 
 static MQTTClient client;
 
 volatile MQTTClient_deliveryToken deliveredtoken;
 
 void serverAction(char* message);
+
+int executeQuery(char* query);
 
 int unitExist(char* id);
 void createRecordInDB(char* unitID);
@@ -108,6 +111,33 @@ void connlost(void *context, char *cause){
 void delivered(void *context, MQTTClient_deliveryToken dt){
     printf("Message with token value %d delivery confirmed\n", dt);
     deliveredtoken =  dt;
+}
+
+int executeQuery(char* query){
+	sqlite3 *db;
+	sqlite3_stmt *stm;
+	
+	char* errMsg = 0;
+	
+	int rc = sqlite3_open("automation.db", &db);
+	
+	if(rc){
+		printf("Filed to open the DB.\n");
+		return 0;
+	}
+	
+	rc = sqlite3_exec(db, query, 0, 0, &errMsg);
+	if (rc != SQLITE_OK ) {
+        
+		fprintf(stderr, "SQL error: %s\n", errMsg);
+		sqlite3_free(errMsg);    
+
+		return 0;
+	}
+	
+	sqlite3_close(db);
+	
+	return 1;
 }
 
 int messageArrived(void *context, char *topicName, int topicLen, MQTTClient_message *message){
@@ -181,39 +211,48 @@ void serverAction(char * message){
 	if(strstr(message, "Real Time") != NULL|| strstr(message, "Config") != NULL){
 		loadDataToServer(message);
 	}else{
-		printf("Slon\n");
+		char mode[8];
+		
+		if(strstr(message, "enabled") != NULL){
+			stpcpy(mode, "Sensor");
+		}else{
+			stpcpy(mode, "IDLE");
+		}
+		char* ptr;
+		char id[5];
+		int unitID = strtol(message, &ptr, 10); 
+		
+		char* query = malloc(strlen(UPDATERECORD) + strlen(mode) + strlen(sprintf(id, "%d", unitID)) + 1);
+		sprintf(query, UPDATERECORD, mode, unitID);
+		
+		printf("Query = %s", query);
+
+		if(executeQuery(query) == 1){
+			printf("Record updated successful!\n");
+		}else{
+			printf("Error in updating record!\n");
+		}
+		
+		free(query);
 	}
 }
 
 void createRecordInDB(char* unitID){
-	sqlite3 *db;
-	sqlite3_stmt *stm;
-	
 	char opMode[] = "IDLE";
-	char* err_msg = 0;
-	
-	int rc = sqlite3_open("automation.db", &db);
-	
-	if(rc){
-		printf("Filed to open the DB.\n");
-	}
-	
+
 	printf("Preparing query...\n");
 	char* query = malloc(strlen(INSERTRECORD) + strlen(unitID) + strlen(opMode) + 1);
 	sprintf(query, INSERTRECORD, atoi(unitID), unitID, opMode);
 	
-	printf("Inser record query = %s\n", query);
+	printf("Query = %s\n", query);
 	
-	rc = sqlite3_exec(db, query, 0, 0, &err_msg);
-	if (rc != SQLITE_OK ) {
-        
-		fprintf(stderr, "SQL error: %s\n", err_msg);
-		sqlite3_free(err_msg);        
+	if(executeQuery(query) == 1){
+		printf("Record successful!\n");
+	}else{
+		printf("Error in making record!\n");
 	}
 	
 	free(query);
-	
-	sqlite3_close(db);
 }
 
 int unitExist(char* id){
@@ -380,34 +419,19 @@ void loadDataToServer(char* serverMessage){
 }
 
 void loadDataToDB(int unitID, char* temp, char* hum, char* time){
-	
-	sqlite3 *db;
-	sqlite3_stmt *stmt;
-	
-	char *err_msg = 0;
 
-	int rc = sqlite3_open("automation.db", &db);
-	
-	if(rc){
-		printf("Failed to open\n");
+	char* query = malloc(strlen(INSERTMESSAGE) + strlen(temp) + strlen(hum) + strlen(time));
+	sprintf(query, INSERTMESSAGE, unitID, temp, hum, time);
+		
+	printf("Query = %s\n", query);
+		
+	if(executeQuery(query) == 1){
+		printf("Insert data successful!\n");
 	}else{
-		char* query = malloc(strlen(INSERTMESSAGE) + strlen(temp) + strlen(hum) + strlen(time));
-		sprintf(query, INSERTMESSAGE, unitID, temp, hum, time);
-		
-		printf("Query = %s\n", query);
-		
-		rc = sqlite3_exec(db, query, 0, 0, &err_msg);
-		if (rc != SQLITE_OK ) {
-        
-			fprintf(stderr, "SQL error: %s\n", err_msg);
-        
-			sqlite3_free(err_msg);        
-		} 
-		
-		free(query);
+		printf("Error in inserting data!\n");
 	}
 	
-	sqlite3_close(db);
+	free(query);
 }
 
 void publishMessage(char* message, char* topic){
