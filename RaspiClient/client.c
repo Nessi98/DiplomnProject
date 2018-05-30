@@ -29,7 +29,7 @@
 #define CONFIGMESSAGE	"Config"
 
 // Query For the Database
-#define QUERY 			"SELECT temp, hum FROM Data Where unitID = %d ORDER BY time DESC LIMIT 1"
+#define REALTIMEDATA 	"SELECT temp, hum FROM Data Where unitID = %d ORDER BY time DESC LIMIT 1"
 #define UNITEXISTENCE	"SELECT name FROM SensorUnit WHERE id = %s"
 #define INSERTMESSAGE	"INSERT INTO Data (unitID, temp, hum, time) VALUES (%d, '%s', '%s', '%s')"
 #define INSERTRECORD	"INSERT INTO SensorUnit (id, name, opMode) VALUES (%d, '%s', '%s')"
@@ -123,25 +123,45 @@ int messageArrived(void *context, char *topicName, int topicLen, MQTTClient_mess
 	putchar('\n');
 	
 	if(strstr(topicName, DISCOVER) != NULL){
-		//check if the arrieved discover already exist in the db
+		//Check if the arrieved id of sensor unit already exist in the Database
 		if(!unitExist(message->payload)){
 			printf("Record doesn't exist.\n");
+			
 			createRecordInDB(message->payload);
-			subscribeForSensorUnit("1");
+			//subscribeForSensorUnit("1");
 			//subscribeForSensorUnit(message->payload);
 		}else{
 			printf("Record already exitst in the DB!\n");
 		}
 	}else if(strstr(topicName, DATA) != NULL){
 		char* token1;
+		char temp[5];
+		char hum[5];
+		char time[17];
+		
+		int turn = 0;
 		
 		token1 = strtok(message->payload, ",");
 		while(token1 != NULL){
-			printf("%s\n", token1);	
-			token1 = strtok(NULL, ",");
-		}
+			switch(turn){
+				case 0: 
+					sprintf(temp, "%s", token1);
+					break;
+				case 1:
+					sprintf(hum, "%s", token1);
+					break;
+				default:
+					sprintf(time, "%s", token1);
+					break;
+			}
 	
+			token1 = strtok(NULL, ",");
+			turn ++;
+		}
+		
+		printf("Temperature = %s, Humidity = %s, Time = %s\n", temp, hum, time);
 		loadDataToDB(1, "24", "38%", "2018/11/24 15:45:35");
+		
 	}else if(strstr(topicName, ACKNOWLEDGE) != NULL){
 		
 	}else if(strstr(topicName, SERVERACTION) != NULL){
@@ -303,8 +323,8 @@ void loadDataToServer(char* serverMessage){
 					
 				}else{
 
-					char* statement = malloc (strlen(QUERY) + 10);
-					sprintf(statement, QUERY, sqlite3_column_int(stmt, count));
+					char* statement = malloc (strlen(REALTIMEDATA) + 10);
+					sprintf(statement, REALTIMEDATA, sqlite3_column_int(stmt, count));
 						
 					printf("Statement = %s\n", statement);
 						

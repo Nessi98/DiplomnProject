@@ -144,7 +144,6 @@ get '/config' do
 	@sensors = Array.new
 	while counter < sensorCount do
 		@sensors << {:id => idArr[counter], :name => nameArr[counter], :enabled => enabledArr[counter], :op_Mode => opModeArr[counter]}
-		#@sensors << { id: 1, :name => nameArr[counter], :enabled => enabledArr[counter], :op_Mode => opModeArr[counter]}
 		
 		counter += 1
 	end
@@ -153,9 +152,9 @@ get '/config' do
 end
 
 
-get '/sensor' do
-	puts "sensor #{params[:name]} has been #{params[:mode]}"
-	#puts "sensor #{params[:id]} has been #{params[:mode]}"
+get '/sensor?name' do
+	puts "sensor #{params[:id]} has been #{params[:mode]}"
+	client.publish(serverAction, "Enable unit #{params[:id]} ", false, 1)
 	redirect "/config"
 end
 	
