@@ -10,7 +10,7 @@ function launch()
     print("IP Address: " .. wifi.sta.getip())
   
     -- Call command file
-    dofile("security.lua")
+    dofile("security.lua") 
     makeConn()
 end
 

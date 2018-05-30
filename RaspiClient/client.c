@@ -38,10 +38,12 @@ static MQTTClient client;
 
 volatile MQTTClient_deliveryToken deliveredtoken;
 
+void serverAction(char* message);
+
 int unitExist(char* id);
 void createRecordInDB(char* unitID);
-void loadDataToDB(int unitID, char* temp, char* hum, char* time);
 void loadDataToServer(char * serverMessage);
+void loadDataToDB(int unitID, char* temp, char* hum, char* time);
 
 void connlost(void *context, char *cause);
 void subscribeForSensorUnit(char* discover);
@@ -89,6 +91,7 @@ int main(int argc, char* argv[]){
 		printf("Subscribed for topic %s successful\n", SERVER);
 	}
     
+	publishMessage("Hello", "/system_name/4/config");
 	while(1){}
 	
     MQTTClient_disconnect(client, 10000);
@@ -125,14 +128,13 @@ int messageArrived(void *context, char *topicName, int topicLen, MQTTClient_mess
 	if(strstr(topicName, DISCOVER) != NULL){
 		//Check if the arrieved id of sensor unit already exist in the Database
 		if(!unitExist(message->payload)){
-			printf("Record doesn't exist.\n");
-			
+			printf("Record doesn't exist.\n");	
 			createRecordInDB(message->payload);
-			//subscribeForSensorUnit("1");
-			//subscribeForSensorUnit(message->payload);
 		}else{
 			printf("Record already exitst in the DB!\n");
 		}
+		
+		//subscribeForSensorUnit(message->payload);
 	}else if(strstr(topicName, DATA) != NULL){
 		char* token1;
 		char temp[5];
@@ -160,12 +162,12 @@ int messageArrived(void *context, char *topicName, int topicLen, MQTTClient_mess
 		}
 		
 		printf("Temperature = %s, Humidity = %s, Time = %s\n", temp, hum, time);
-		loadDataToDB(1, "24", "38%", "2018/11/24 15:45:35");
+		loadDataToDB(1, temp, hum, time);
 		
 	}else if(strstr(topicName, ACKNOWLEDGE) != NULL){
 		
 	}else if(strstr(topicName, SERVERACTION) != NULL){
-		loadDataToServer(message->payload);
+		serverAction(message->payload);
 	}
 	
     MQTTClient_freeMessage(&message);
@@ -173,6 +175,14 @@ int messageArrived(void *context, char *topicName, int topicLen, MQTTClient_mess
 	
 	
     return 1;
+}
+
+void serverAction(char * message){
+	if(strstr(message, "Real Time") != NULL|| strstr(message, "Config") != NULL){
+		loadDataToServer(message);
+	}else{
+		printf("Slon\n");
+	}
 }
 
 void createRecordInDB(char* unitID){
@@ -357,9 +367,9 @@ void loadDataToServer(char* serverMessage){
 				}
 				printf("Unit id = %d\n", sqlite3_column_int(stmt, count));
 				break;
-			}			
-		printf("Message = %s\n", message);
+			}
 		}
+		printf("Message = %s\n", message);
 	}
 	sqlite3_finalize(stmt);
 	
@@ -426,7 +436,7 @@ void subscribeForSensorUnit(char* discover){
 	MQTTClient_message pubmsg = MQTTClient_message_initializer;
 	MQTTClient_deliveryToken token;
 	
-	//printf("%s\n", discover);
+	printf("%s\n", discover);
 	
 	const size_t systemLen = strlen(SYSTEM);
 	const size_t discoverLen = strlen(discover);
@@ -446,7 +456,12 @@ void subscribeForSensorUnit(char* discover){
 	memcpy(configAckTopic, SYSTEM, systemLen);
 	memcpy(configAckTopic + systemLen, discover, discoverLen);
 	memcpy(configAckTopic + systemLen + discoverLen, ACKNOWLEDGE, ackLen + 1);
-	
+	//memset
+	printf("Preparing\n");
+	int count;
+	for(count = 0; count < strlen(configAckTopic); count++){
+		printf("%c ", configAckTopic[count]);
+	}
 	int rc = MQTTClient_subscribe(client, configAckTopic, QOS);
 	printf("Topic: %s\n", configAckTopic);
 	printf("Result from subscribe: %d\n", rc);

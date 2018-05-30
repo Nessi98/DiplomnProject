@@ -3,9 +3,6 @@
 -- Si7021 compatible tested 2015-1-22
 --
 -- Written by VIP6
---
--- MIT license, http://opensource.org/licenses/MIT
--- ***************************************************************************
 
 local moduleName = ...
 local M = {}

@@ -152,9 +152,11 @@ get '/config' do
 end
 
 
-get '/sensor?name' do
-	puts "sensor #{params[:id]} has been #{params[:mode]}"
-	client.publish(serverAction, "Enable unit #{params[:id]} ", false, 1)
+get '/sensor' do
+	puts "Change mode: mode = #{params[:mode]} unitID = #{params[:id]}"
+	
+	client.publish(serverAction, "Change mode: mode = #{params[:mode]} unitID = #{params[:id]}", false, 1)
+	
 	redirect "/config"
 end
 	
