@@ -9,14 +9,14 @@
 	<div class="row" style="padding: 10px 20px;">
 		<div class="span8">
 			<div class="btn-group" data-toggle="buttons-radio">
-				<a href="/sensor?name=<%= sensor[:id] %>&mode=enabled" class=" <%= if sensor[:enabled] then 'active' else '' end %> btn ">On</a>
-				<a href="/sensor?name=<%= sensor[:id] %>&mode=disabled"  class=" <%= if !sensor[:enabled] then 'active' else '' end %> btn ">Off</a>
+				<a href="/sensor?id=<%= sensor[:id] %>&mode=enabled" class=" <%= if sensor[:enabled] then 'active' else '' end %> btn ">On</a>
+				<a href="/sensor?id=<%= sensor[:id] %>&mode=disabled"  class=" <%= if !sensor[:enabled] then 'active' else '' end %> btn ">Off</a>
 			</div>
 			
 			<div class="btn-group" data-toggle="buttons-radio">
-				<a href="/sensor?name=<%= sensor[:id] %>&mode=sensor" class=" <%= if sensor[:op_Mode] == 'sensor' then 'active' else '' end %> btn ">Sensor</a>
-				<a href="/sensor?name=<%= sensor[:id] %>&mode=relay" class=" <%= if sensor[:op_Mode] == 'relay' then 'active' else '' end %> btn ">Relay</a>
-				<a href="/sensor?name=<%= sensor[:id] %>&mode=sensorAndRelay" class=" <%= if sensor[:op_Mode] == 'sensorAndRelay' then 'active' else '' end %> btn ">Sensor And Relay</a>
+				<a href="/sensor?id=<%= sensor[:id] %>&mode=sensor" class=" <%= if sensor[:op_Mode] == 'sensor' then 'active' else '' end %> btn ">Sensor</a>
+				<a href="/sensor?id=<%= sensor[:id] %>&mode=relay" class=" <%= if sensor[:op_Mode] == 'relay' then 'active' else '' end %> btn ">Relay</a>
+				<a href="/sensor?id=<%= sensor[:id] %>&mode=sensorAndRelay" class=" <%= if sensor[:op_Mode] == 'sensorAndRelay' then 'active' else '' end %> btn ">Sensor And Relay</a>
 			</div>
 		</div>
 	</div>

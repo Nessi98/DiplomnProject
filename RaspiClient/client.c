@@ -33,7 +33,7 @@
 #define UNITEXISTENCE	"SELECT name FROM SensorUnit WHERE id = %s"
 #define INSERTMESSAGE	"INSERT INTO Data (unitID, temp, hum, time) VALUES (%d, '%s', '%s', '%s')"
 #define INSERTRECORD	"INSERT INTO SensorUnit (id, name, opMode) VALUES (%d, '%s', '%s')"
-#define UPDATERECORD	"UPDATE SensorUnit SET opMode = %s WHERE id = %d"
+#define UPDATERECORD	"UPDATE SensorUnit SET opMode = '%s' WHERE id = %s"
 
 static MQTTClient client;
 
@@ -208,7 +208,8 @@ int messageArrived(void *context, char *topicName, int topicLen, MQTTClient_mess
 }
 
 void serverAction(char * message){
-	if(strstr(message, "Real Time") != NULL|| strstr(message, "Config") != NULL){
+	
+	if(strstr(message, "Real Time") != NULL || strstr(message, "Config") != NULL){
 		loadDataToServer(message);
 	}else{
 		char mode[8];
@@ -218,14 +219,19 @@ void serverAction(char * message){
 		}else{
 			stpcpy(mode, "IDLE");
 		}
-		char* ptr;
-		char id[5];
-		int unitID = strtol(message, &ptr, 10); 
 		
-		char* query = malloc(strlen(UPDATERECORD) + strlen(mode) + strlen(sprintf(id, "%d", unitID)) + 1);
-		sprintf(query, UPDATERECORD, mode, unitID);
+		char delimiter[] = "=";
+		char* ptr = strtok(message, delimiter);
+		ptr = strtok(NULL, delimiter);
 		
-		printf("Query = %s", query);
+		// Get unitID
+		ptr = strtok(NULL, delimiter);
+		printf("Ptr = %s\n", ptr);
+
+		char* query = malloc(strlen(UPDATERECORD) + strlen(mode) + strlen(ptr) + 1);
+		sprintf(query, UPDATERECORD, mode, ptr); 
+		
+		printf("Query = %s\n", query);
 
 		if(executeQuery(query) == 1){
 			printf("Record updated successful!\n");
