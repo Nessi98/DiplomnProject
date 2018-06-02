@@ -14,9 +14,9 @@
 			</div>
 			
 			<div class="btn-group" data-toggle="buttons-radio">
-				<a href="/sensor?id=<%= sensor[:id] %>&mode=sensor" class=" <%= if sensor[:op_Mode] == 'sensor' then 'active' else '' end %> btn ">Sensor</a>
-				<a href="/sensor?id=<%= sensor[:id] %>&mode=relay" class=" <%= if sensor[:op_Mode] == 'relay' then 'active' else '' end %> btn ">Relay</a>
-				<a href="/sensor?id=<%= sensor[:id] %>&mode=sensorAndRelay" class=" <%= if sensor[:op_Mode] == 'sensorAndRelay' then 'active' else '' end %> btn ">Sensor And Relay</a>
+				<a href="/sensor?id=<%= sensor[:id] %>&mode=Sensor" class=" <%= if sensor[:op_Mode] == 'Sensor' then 'active' else '' end %> btn ">Sensor</a>
+				<a href="/sensor?id=<%= sensor[:id] %>&mode=Relay" class=" <%= if sensor[:op_Mode] == 'Relay' then 'active' else '' end %> btn ">Relay</a>
+				<a href="/sensor?id=<%= sensor[:id] %>&mode=SensorAndRelay" class=" <%= if sensor[:op_Mode] == 'SensorAndRelay' then 'active' else '' end %> btn ">Sensor And Relay</a>
 			</div>
 		</div>
 	</div>

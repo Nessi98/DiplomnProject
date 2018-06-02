@@ -24,16 +24,21 @@
 #define DISCOVER		"/system_name/discover"
 
 // Messages
-#define IDLEMESSAGE 	"op_Mode: IDLE; sleep_time: 50000"
-#define REALTIMEMESSAGE "Real Time"
+#define IDLE			"IDLE"
+#define RELAY			"Relay"
+#define SENSOR			"Sensor"
 #define CONFIGMESSAGE	"Config"
+#define REALTIME	 	"Real Time"
+#define STATISTICS		"Statistics"
+#define SENSORANDRELAY	"SensorAndRelay"
+#define IDLEMESSAGE 	"op_Mode: IDLE; sleep_time: 50000"
 
 // Query For the Database
 #define REALTIMEDATA 	"SELECT temp, hum FROM Data Where unitID = %d ORDER BY time DESC LIMIT 1"
 #define UNITEXISTENCE	"SELECT name FROM SensorUnit WHERE id = %s"
 #define INSERTMESSAGE	"INSERT INTO Data (unitID, temp, hum, time) VALUES (%d, '%s', '%s', '%s')"
 #define INSERTRECORD	"INSERT INTO SensorUnit (id, name, opMode) VALUES (%d, '%s', '%s')"
-#define UPDATERECORD	"UPDATE SensorUnit SET opMode = '%s' WHERE id = %s"
+#define UPDATERECORD	"UPDATE SensorUnit SET opMode = '%s' WHERE id = %d"
 
 static MQTTClient client;
 
@@ -209,27 +214,38 @@ int messageArrived(void *context, char *topicName, int topicLen, MQTTClient_mess
 
 void serverAction(char * message){
 	
-	if(strstr(message, "Real Time") != NULL || strstr(message, "Config") != NULL){
+	if(strstr(message, REALTIME) != NULL || strstr(message, CONFIGMESSAGE) != NULL){
 		loadDataToServer(message);
+	}else if(strstr(message, STATISTICS) != NULL){
+		
 	}else{
-		char mode[8];
+		char mode[strlen(SENSORANDRELAY) + 1];
+		memset(mode, '\0', strlen(SENSORANDRELAY) + 1);
 		
 		if(strstr(message, "enabled") != NULL){
-			stpcpy(mode, "Sensor");
-		}else{
-			stpcpy(mode, "IDLE");
+			stpcpy(mode, SENSOR);
+		}else if(strstr(message, SENSORANDRELAY) != NULL){
+			stpcpy(mode, SENSORANDRELAY);
+		}else if(strstr(message, RELAY)){
+			stpcpy(mode, RELAY);
+		}else if(strstr(message, "disabled")){
+			stpcpy(mode, IDLE);
 		}
 		
-		char delimiter[] = "=";
+		printf("Mode: %s\n", mode);
+		
+		char delimiter[] = "=\0";
 		char* ptr = strtok(message, delimiter);
 		ptr = strtok(NULL, delimiter);
-		
+
 		// Get unitID
 		ptr = strtok(NULL, delimiter);
 		printf("Ptr = %s\n", ptr);
-
-		char* query = malloc(strlen(UPDATERECORD) + strlen(mode) + strlen(ptr) + 1);
-		sprintf(query, UPDATERECORD, mode, ptr); 
+		
+		int size = strlen(UPDATERECORD) + strlen(mode) + strlen(ptr) + 1;
+		char* query = malloc(size);
+		memset(query, '\0', size);	
+		sprintf(query, UPDATERECORD, mode, atoi(ptr)); 
 		
 		printf("Query = %s\n", query);
 
@@ -319,7 +335,7 @@ void loadDataToServer(char* serverMessage){
 	}
 	
 	printf("Performing query...\n");
-	if(strstr(serverMessage, REALTIMEMESSAGE) != NULL){
+	if(strstr(serverMessage, REALTIME) != NULL){
 		sqlite3_prepare_v2(db, "SELECT name, id from SensorUnit WHERE opMode != 'IDLE'", -1, &stmt, NULL);
 	}else if(strstr(serverMessage, CONFIGMESSAGE) != NULL){
 		sqlite3_prepare_v2(db, "SELECT * FROM SensorUnit", -1, &stmt, NULL);

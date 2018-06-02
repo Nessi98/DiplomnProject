@@ -155,7 +155,7 @@ end
 get '/sensor' do
 	puts "Change mode: mode = #{params[:mode]} unitID = #{params[:id]}"
 	
-	client.publish(serverAction, "Change mode: mode = #{params[:mode]} unitID = #{params[:id]}	", false, 1)
+	client.publish(serverAction, "Change mode;mode=#{params[:mode]};unitID=#{params[:id]}", false, 1)
 	
 	redirect "/config"
 end
