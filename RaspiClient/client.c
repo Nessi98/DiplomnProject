@@ -39,6 +39,7 @@
 #define INSERTMESSAGE	"INSERT INTO Data (unitID, temp, hum, time) VALUES (%d, '%s', '%s', '%s')"
 #define INSERTRECORD	"INSERT INTO SensorUnit (id, name, opMode) VALUES (%d, '%s', '%s')"
 #define UPDATERECORD	"UPDATE SensorUnit SET opMode = '%s' WHERE id = %d"
+#define UPDATENAME		"UPDATE SensorUnit SET name = '%s' WHERE id = %d"
 
 static MQTTClient client;
 
@@ -218,6 +219,23 @@ void serverAction(char * message){
 		loadDataToServer(message);
 	}else if(strstr(message, STATISTICS) != NULL){
 		
+	}else if(strstr(message, "Change name") != NULL){
+		char* ptr = strstr(message, "name=") + strlen("name=");
+		char* ptr2 = strstr(message, ";unitID=");
+		int size = strlen(ptr) - strlen(ptr2) + 1;
+		char* name = malloc(size);
+		memcpy(name, ptr, size - 1);
+		name[size - 1] = '\0'; 
+		printf("New name = %s\n", name);
+		ptr2 += strlen(";unitID=");
+		
+		char* query = malloc(strlen(UPDATENAME) + size + strlen(ptr2));
+		sprintf(query, UPDATENAME, name, atoi(ptr2));
+		
+		printf("Query = %s\n", query);
+		free(query);
+		free(name);
+		
 	}else{
 		char mode[strlen(SENSORANDRELAY) + 1];
 		memset(mode, '\0', strlen(SENSORANDRELAY) + 1);
@@ -228,16 +246,20 @@ void serverAction(char * message){
 			stpcpy(mode, SENSORANDRELAY);
 		}else if(strstr(message, RELAY)){
 			stpcpy(mode, RELAY);
+		}else if(strstr(message, SENSOR) != NULL){
+			strcpy(mode, SENSOR);
 		}else if(strstr(message, "disabled")){
 			stpcpy(mode, IDLE);
 		}
 		
 		printf("Mode: %s\n", mode);
 		
-		char delimiter[] = "=\0";
+		char delimiter[] = "=";
 		char* ptr = strtok(message, delimiter);
+		printf("Ptr = %s\n", ptr);
 		ptr = strtok(NULL, delimiter);
-
+		printf("Prt = %s\n", ptr);
+		
 		// Get unitID
 		ptr = strtok(NULL, delimiter);
 		printf("Ptr = %s\n", ptr);

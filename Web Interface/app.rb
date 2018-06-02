@@ -159,4 +159,12 @@ get '/sensor' do
 	
 	redirect "/config"
 end
+
+post '/change_name' do
+	name = params[:name].gsub("\\", "\\\\").gsub("'", "\\'").gsub("\"", "\\\"")
+	puts "New Name = #{name}"
 	
+	client.publish(serverAction, "Change name; name=#{name};unitID=#{params[:id]}", false, 1)
+	
+	redirect "/config"
+end
