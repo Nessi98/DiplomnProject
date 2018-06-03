@@ -161,10 +161,19 @@ get '/sensor' do
 end
 
 post '/change_settings' do
-	name = params[:name].gsub("\\", "\\\\").gsub("'", "\\'").gsub("\"", "\\\"")
-	puts "New Name = #{name}"
+
+	if !params[:name].empty? 
+		name = params[:name].gsub("\\", "\\\\").gsub("'", "\\'").gsub("\"", "\\\"")
+		puts "Escaped name = #{name}"
+		
+		client.publish(serverAction, "Change settings;name=#{name};unitID=#{params[:id]}", false, 1)
+	end
 	
-	client.publish(serverAction, "Change name; name=#{name};unitID=#{params[:id]}", false, 1)
+	if !params[:value].empty?
+		puts "Relay value #{params[:value]}"
+		
+		client.publish(serverAction, "Change settings;value=#{params[:value]};unitID=#{params[:id]}", false, 1)
+	end	
 	
 	redirect "/config"
 end

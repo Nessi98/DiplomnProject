@@ -22,13 +22,15 @@
 			</div>
 		</div>
 		
-		<div class="span4">
+		<div class="span8">
 			<form method="POST" action="/change_settings">
-				<input value="<%= sensor[:name] %>" name="name" type="text"></input>
+				<input placeholder="Edit name" name="name" type="text"></input>
 				<input value="<%= sensor[:id] %>" name="id" type="hidden"></input>
-				<input placeholder="Chabge Relay Value" name="value" type="number"></input>
-				<input value="<%= sensor[:id] %>" name="relay" type="hidden"></input>
-				<button style="margin-top: -8px;" type="submit" class="btn"> Save </button>
+				
+				<input placeholder="Change Relay Value" name="value" type="number" max="30" min="18"></input>
+				<input value="<%= sensor[:id] %>" name="id" type="hidden"></input>
+				
+				<button style="margin-top: -10px;" type="submit" class="btn"> Save </button>
 			</form>
 		</div>
 	</div>
