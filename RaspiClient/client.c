@@ -220,25 +220,33 @@ void serverAction(char * message){
 	}else if(strstr(message, STATISTICS) != NULL){
 		
 	}else if(strstr(message, "Change name") != NULL){
-		char* ptr = strstr(message, "name=") + strlen("name=");
-		char* ptr2 = strstr(message, ";unitID=");
-		int size = strlen(ptr) - strlen(ptr2) + 1;
+		char* start = strstr(message, "name=") + strlen("name=");
+		char* end = strstr(message, ";unitID=");
+		
+		int size = strlen(start) - strlen(end) + 1;
 		char* name = malloc(size);
-		memcpy(name, ptr, size - 1);
+		
+		memcpy(name, start, size - 1);
 		name[size - 1] = '\0'; 
-		printf("New name = %s\n", name);
-		ptr2 += strlen(";unitID=");
 		
-		char* query = malloc(strlen(UPDATENAME) + size + strlen(ptr2));
-		sprintf(query, UPDATENAME, name, atoi(ptr2));
+		end += strlen(";unitID=");
 		
-		printf("Query = %s\n", query);
-		free(query);
+		char* query = malloc(strlen(UPDATENAME) + size + strlen(end));
+		sprintf(query, UPDATENAME, name, atoi(end));
+		
 		free(name);
+		printf("Query = %s\n", query);
+		
+		if(executeQuery(query) == 1) {
+			printf("Unit name updated successful!\n");
+		}else{
+			printf("Error in updating unit name!\n");
+		}
+		
+		free(query);
 		
 	}else{
 		char mode[strlen(SENSORANDRELAY) + 1];
-		memset(mode, '\0', strlen(SENSORANDRELAY) + 1);
 		
 		if(strstr(message, "enabled") != NULL){
 			stpcpy(mode, SENSOR);
@@ -253,20 +261,15 @@ void serverAction(char * message){
 		}
 		
 		printf("Mode: %s\n", mode);
+	
+		char* ptr = NULL;
+		ptr = strstr(message, "ID=") + strlen("ID=");
 		
-		char delimiter[] = "=";
-		char* ptr = strtok(message, delimiter);
 		printf("Ptr = %s\n", ptr);
-		ptr = strtok(NULL, delimiter);
-		printf("Prt = %s\n", ptr);
-		
-		// Get unitID
-		ptr = strtok(NULL, delimiter);
-		printf("Ptr = %s\n", ptr);
-		
+
 		int size = strlen(UPDATERECORD) + strlen(mode) + strlen(ptr) + 1;
 		char* query = malloc(size);
-		memset(query, '\0', size);	
+		//memset(query, '\0', size);	
 		sprintf(query, UPDATERECORD, mode, atoi(ptr)); 
 		
 		printf("Query = %s\n", query);
@@ -344,7 +347,7 @@ void loadDataToServer(char* serverMessage){
 	
 	int size = 1;
 	
-	char* comma = ",";
+	char comma[] = ",";
 	char* message = (char*) malloc (size);
 	
 	int len;
@@ -398,7 +401,6 @@ void loadDataToServer(char* serverMessage){
 				message = (char*) realloc (message, size);
 				memcpy(message + size - (len + 1), sqlite3_column_text(stmt, count), len);
 				memcpy(message + size - 2, comma, 2);
-				printf("Unit Name = %s\n", sqlite3_column_text(stmt, count));
 					
 				break;
 				

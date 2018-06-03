@@ -23,9 +23,11 @@
 		</div>
 		
 		<div class="span4">
-			<form method="POST" action="/change_name">
+			<form method="POST" action="/change_settings">
 				<input value="<%= sensor[:name] %>" name="name" type="text"></input>
 				<input value="<%= sensor[:id] %>" name="id" type="hidden"></input>
+				<input placeholder="Chabge Relay Value" name="value" type="number"></input>
+				<input value="<%= sensor[:id] %>" name="relay" type="hidden"></input>
 				<button style="margin-top: -8px;" type="submit" class="btn"> Save </button>
 			</form>
 		</div>

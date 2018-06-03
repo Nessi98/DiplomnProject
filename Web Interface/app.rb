@@ -160,7 +160,7 @@ get '/sensor' do
 	redirect "/config"
 end
 
-post '/change_name' do
+post '/change_settings' do
 	name = params[:name].gsub("\\", "\\\\").gsub("'", "\\'").gsub("\"", "\\\"")
 	puts "New Name = #{name}"
 	
