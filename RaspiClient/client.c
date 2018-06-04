@@ -39,7 +39,7 @@
 #define INSERTMESSAGE	"INSERT INTO Data (unitID, temp, hum, time) VALUES (%d, '%s', '%s', '%s')"
 #define INSERTRECORD	"INSERT INTO SensorUnit (id, name, opMode) VALUES (%d, '%s', '%s')"
 #define UPDATERECORD	"UPDATE SensorUnit SET opMode = '%s' WHERE id = %d"
-#define UPDATENAME		"UPDATE SensorUnit SET '%s' WHERE id = %d"
+#define UPDATENAME		"UPDATE SensorUnit SET %s WHERE id = %d"
 
 static MQTTClient client;
 
@@ -219,33 +219,30 @@ void serverAction(char * message){
 		loadDataToServer(message);
 	}else if(strstr(message, STATISTICS) != NULL){
 		
-	}else if(strstr(message, "Change settings") != NULL){
+	}else if(strstr(message, "Change settings;") != NULL){
 		
-		char* ptr = strtok(message, ";");
-		ptr = strok(NULL, ";");
+		char* ptr = strstr(message, "Change settings;");
+		ptr += strlen("Change settings;");
+		printf("Ptr = %s\n", ptr);
 		
-		char* start = strstr(message, "name=") + strlen("name=");
-		char* end = strstr(message, ";unitID=");
+		char*  settings = malloc(strlen(ptr) - strlen(strstr(ptr, ";unitID")) + 1);
+		memcpy(settings, ptr, strlen(ptr) - strlen(strstr(ptr, ";unitID")));
+		printf("Settings = %s\n", settings);
 		
-		int size = strlen(start) - strlen(end) + 1;
-		char* name = malloc(size);
+
+		ptr = strstr(message, ";unitID=") + strlen(";unitID;");
 		
-		memcpy(name, start, size - 1);
-		name[size - 1] = '\0'; 
+		char* query = malloc(strlen(UPDATENAME) + strlen(settings) + strlen(ptr));
+		sprintf(query, UPDATENAME, settings, atoi(ptr));
 		
-		end += strlen(";unitID=");
-		
-		char* query = malloc(strlen(UPDATENAME) + strlen(end) + strlen(ptr));
-		sprintf(query, UPDATENAME, ptr, atoi(end));
-		
-		free(name);
+		free(settings);
 		printf("Query = %s\n", query);
 		
-		//if(executeQuery(query) == 1) {
-			//printf("Unit name updated successful!\n");
-		//}else{
-		//	printf("Error in updating unit name!\n");
-		//}
+		if(executeQuery(query) == 1) {
+			printf("Unit updated successful!\n");
+		}else{
+			printf("Error in updating unit name!\n");
+		}
 		
 		free(query);
 		
