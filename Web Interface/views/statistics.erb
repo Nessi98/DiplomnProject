@@ -5,6 +5,14 @@
 	<h3> Statistics</h3>
 </div>
 
+<% @sensors.each do |sensor| %>
+	<div class="span4">
+		<div class="btn-group" data-toggle="buttons-radio">
+			<a href="/statistics?id=<%= sensor[:id] %>" class=btn "> <%= sensor[:name] %> </a>
+		</div>
+</div>
+<% end %>
+
 <div class="row" style="padding-top: 10px">
 	<div>
 		<div class="row" style="text-align: center">
@@ -180,4 +188,3 @@
   </script>
 
 </div>
-

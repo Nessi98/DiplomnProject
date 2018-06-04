@@ -52,7 +52,7 @@ get '/' do
 		@sensors << { :name => nameArr[count], :temp => tempArr[count], :hum => humArr[count]}
 		count += 1
 	end
-	puts "PATE"
+	
 	erb :index
 end
 
@@ -75,7 +75,34 @@ get '/statistics' do
 	end
 	
 	serverTopic, message = client.get
-	#data = message.split(',')
+	data = message.split(',')
+	
+	idArr = []
+	nameArr = []
+	
+	count = 0
+	sensorCount = 0
+	
+	data.each do |d|
+		case
+		when count = 0
+			idArr[sensorCount] = d
+			count += 1
+		else
+			nameArr[sensorCount] = d
+			
+			count = 0
+			sensorCount += 1
+		end
+	end 
+	
+	count = 0
+
+	@sensors = Array.new
+	while count < sensorCount do
+		@sensors << { :name => nameArr[count], :temp => tempArr[count], :hum => humArr[count]}
+		count += 1
+	end
 	
 	#data.each do |d|
 	#	puts d
@@ -176,4 +203,8 @@ post '/change_settings' do
 	end	
 	
 	redirect "/config"
+end
+
+get '/statistics' do
+	puts 'Statistics'
 end

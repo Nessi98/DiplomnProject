@@ -218,7 +218,7 @@ void serverAction(char * message){
 	if(strstr(message, REALTIME) != NULL || strstr(message, CONFIGMESSAGE) != NULL){
 		loadDataToServer(message);
 	}else if(strstr(message, STATISTICS) != NULL){
-		
+		loadDataToServer(message);
 	}else if(strstr(message, "Change settings;") != NULL){
 		
 		char* ptr = strstr(message, "Change settings;");
@@ -367,7 +367,7 @@ void loadDataToServer(char* serverMessage){
 		sqlite3_prepare_v2(db, "SELECT * FROM SensorUnit", -1, &stmt, NULL);
 		flag = 1;
 	}else{
-		int id = 2;
+		/*int id = 2;
 		time_t t = time(NULL);
 		struct tm tm = *localtime(&t);
 	
@@ -382,7 +382,9 @@ void loadDataToServer(char* serverMessage){
 		//sprintf(query, "SELECT temp, hum, time FROM Data WHERE unitID = %d AND time > %s AND time < %s", id, start, end);
 		sprintf(query, "SELECT temp, hum, time FROM Data WHERE unitID = %d", id);
 		printf("%s\n", query);
-		sqlite3_prepare_v2(db, query, -1, &stmt, NULL);
+		sqlite3_prepare_v2(db, query, -1, &stmt, NULL);*/
+		
+		sqlite3_prepare_v2(db, "SELECT name, id from SensorUnit WHERE opMode != 'IDLE'", -1, &stmt, NULL);
 	}
 		
 	printf("Got results:\n");
