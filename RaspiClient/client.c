@@ -361,6 +361,7 @@ void loadDataToServer(char* serverMessage){
 	}
 	
 	printf("Performing query...\n");
+	
 	if(strstr(serverMessage, REALTIME) != NULL){
 		sqlite3_prepare_v2(db, "SELECT name, id from SensorUnit WHERE opMode != 'IDLE'", -1, &stmt, NULL);
 	}else if(strstr(serverMessage, CONFIGMESSAGE) != NULL){
@@ -379,12 +380,14 @@ void loadDataToServer(char* serverMessage){
 		printf("now: %s\n", start);
 		
 		char query[255];
-		//sprintf(query, "SELECT temp, hum, time FROM Data WHERE unitID = %d AND time > %s AND time < %s", id, start, end);
+		sprintf(query, "SELECT temp, hum, time FROM Data WHERE unitID = %d AND time > %s AND time < %s", id, start, end);
 		sprintf(query, "SELECT temp, hum, time FROM Data WHERE unitID = %d", id);
 		printf("%s\n", query);
 		sqlite3_prepare_v2(db, query, -1, &stmt, NULL);*/
 		
-		sqlite3_prepare_v2(db, "SELECT name, id from SensorUnit WHERE opMode != 'IDLE'", -1, &stmt, NULL);
+		sqlite3_prepare_v2(db, "SELECT id, name from SensorUnit WHERE opMode != 'IDLE'", -1, &stmt, NULL);
+		flag = 1;
+		printf("Flag = %d\n", flag);
 	}
 		
 	printf("Got results:\n");

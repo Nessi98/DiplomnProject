@@ -59,23 +59,27 @@ end
 # Sends message to the C client to get data about the senosr unit in the DB
 get '/statistics' do
 
-	@period = params[:period]
-	case @period
-	when 'daily'
-		puts "Publish for daily stats"
-		client.publish(serverAction, "Statistics for the day", false, 1)
-	when 'monthly'
-		puts "publish for monthly stats"
-		client.publish(serverAction, "Statistics for the month", false, 1)
-	when 'yearly'
-		puts "publish for yearly stats"
-		client.publish(serverAction, "Statistics for the year", false, 1)
-	else
-		redirect '/statistics?period=daily'
-	end
+	#period = params[:period]
+	#case @period
+	#when 'daily'
+	#	puts "Publish for daily stats"
+	#	client.publish(serverAction, "Statistics for the day", false, 1)
+	#when 'monthly'
+	#	puts "publish for monthly stats"
+	#	client.publish(serverAction, "Statistics for the month", false, 1)
+	#when 'yearly'
+	#	puts "publish for yearly stats"
+	#	client.publish(serverAction, "Statistics for the year", false, 1)
+	#else
+	#	redirect '/statistics?period=daily'
+	#end
+	
+	client.publish(serverAction, "Statistics for the day", false, 1) 
 	
 	serverTopic, message = client.get
-	data = message.split(',')
+	data = message.split(",")
+	
+	puts data
 	
 	idArr = []
 	nameArr = []
@@ -83,10 +87,9 @@ get '/statistics' do
 	count = 0
 	sensorCount = 0
 	
-	data.each do |d|
-		case
-		when count = 0
-			idArr[sensorCount] = d
+	data.each do |d|		
+		if count == 0 then 
+			idArr[sensorCount] = d	
 			count += 1
 		else
 			nameArr[sensorCount] = d
@@ -100,9 +103,12 @@ get '/statistics' do
 
 	@sensors = Array.new
 	while count < sensorCount do
-		@sensors << { :name => nameArr[count], :temp => tempArr[count], :hum => humArr[count]}
+		@sensors << { :id => idArr[count], :name => nameArr[count]}
 		count += 1
 	end
+	
+	puts sensorCount
+	puts @sensors
 	
 	#data.each do |d|
 	#	puts d
