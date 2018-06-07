@@ -1,20 +1,25 @@
 <div class="row" style="text-align: center; padding-top: 50px">
-	<a href="/statistics?period=daily"   class="<%= if @period == 'daily' then 'btn-primary' else '' end %> btn">Daily</a>
-	<a href="/statistics?period=monthly" class="<%= if @period == 'monthly' then 'btn-primary' else '' end %> btn">Monthly</a>
-	<a href="/statistics?period=yearly"  class="<%= if @period == 'yearly' then 'btn-primary' else '' end %> btn">Yearly</a>
+	<a href="/statistics?period=daily&id=<%= @id %>"   class="<%= if @period == 'daily' then 'btn-primary' else '' end %> btn">Daily</a>
+	<a href="/statistics?period=monthly&id=<%= @id %>" class="<%= if @period == 'monthly' then 'btn-primary' else '' end %> btn">Monthly</a>
+	<a href="/statistics?period=yearly&id=<%= @id %>"  class="<%= if @period == 'yearly' then 'btn-primary' else '' end %> btn">Yearly</a>
 	
 	<h3> Statistics</h3>
 </div>
 
-<div class="row" style="padding: 10px 20px;">
-	<div class="span8">
-		<div class="btn-group" data-toggle="buttons-radio" style="text-align: center; padding-top: 50px">
+<div class="btn-group">
+	<a class="btn dropdown-toggle" data-toggle="dropdown"> 
+		<%= @sensors.select { |s| s[:id] = @id} %>
+		<span class="caret"></span>
+    </a>
+	
+    <ul class="dropdown-menu">
 		<% @sensors.each do |sensor| %>
-			<a href="/statistics?id=<%= sensor[:id] %>" class="btn"> <%= sensor[:name] %> </a>
-			<% end %>
-		</div>
-	</div>
-</div> 
+			<a style="margin-left: 10px"href="/statistics?period=daily&id=<%= sensor[:id] %>" > <%= sensor[:name] %> </a>
+			<br />
+		<% end %>
+    </ul>
+
+</div>
 
 <div class="row" style="padding-top: 10px">
 	<div>

@@ -41,6 +41,8 @@
 #define UPDATERECORD	"UPDATE SensorUnit SET opMode = '%s' WHERE id = %d"
 #define UPDATENAME		"UPDATE SensorUnit SET %s WHERE id = %d"
 
+#define DAILY			"SELECT AVG(temp), AVG(hum) FROM Data WHERE unitID = 2 AND time(time) BETWEEN  strftime('%H:%M:%S', '22:00:00') AND strftime('%H:%M:%S', '23:00:00')"
+
 static MQTTClient client;
 
 volatile MQTTClient_deliveryToken deliveredtoken;
@@ -50,6 +52,7 @@ void serverAction(char* message);
 int executeQuery(char* query);
 
 int unitExist(char* id);
+void getData(char* query); 
 void createRecordInDB(char* unitID);
 void loadDataToServer(char * serverMessage);
 void loadDataToDB(int unitID, char* temp, char* hum, char* time);
@@ -89,7 +92,7 @@ int main(int argc, char* argv[]){
 	
 	printf("Successful conntection with the Brocker.\n");
 	
-	
+	getData(DAILY);
 	rc = MQTTClient_subscribe(client, DISCOVER, QOS);
 	if(rc == 0){
 		printf("Subscribed for topic %s successful\n", DISCOVER);
@@ -341,6 +344,57 @@ int unitExist(char* id){
 	return result;
 }
 
+void getData(char* query){
+	
+	sqlite3 *db;
+	sqlite3_stmt *stmt, *stmt2;
+	
+	int rc = sqlite3_open("automation.db", &db);
+	
+	if(rc){
+		printf("Failed to open\n");
+	}
+	
+	int size = 1;
+	int count;
+	char delimiter = ',';
+	char* result = (char*) malloc(size);
+	
+	sqlite3_prepare_v2(db, query, -1, &stmt, NULL);
+	
+	while(sqlite3_step(stmt) != SQLITE_DONE) {
+
+		int col_num = sqlite3_column_count(stmt);
+		
+		for (count = 0; count < col_num; count ++){
+				
+			switch (sqlite3_column_type(stmt, count))
+			{
+			case(SQLITE3_TEXT):		
+				break;
+				
+			case(SQLITE_INTEGER):
+				break;
+			default:
+				int len = strlen(sqlite3_column_double(stmt, count));
+				size += len + 1;
+				
+				result = (char*) realloc(result, size);
+				
+				memcpy(result + size - (len + 1), sqlite3_column_double(stmt, count), len);
+				memcpy(result + size - 1, delimiter, 1);
+				
+				printf("Result = %s\n", result);
+				break;
+			}
+		}
+	}
+	sqlite3_finalize(stmt);
+	
+	sqlite3_close(db);
+	
+}
+
 void loadDataToServer(char* serverMessage){
 	
 	sqlite3 *db;
@@ -368,6 +422,13 @@ void loadDataToServer(char* serverMessage){
 		sqlite3_prepare_v2(db, "SELECT * FROM SensorUnit", -1, &stmt, NULL);
 		flag = 1;
 	}else{
+		if(strstr(message, "day")){
+			printf("Statistics for the day\n");
+		}else if(strstr(message, "month")){
+
+		}else{
+			
+		}
 		/*int id = 2;
 		time_t t = time(NULL);
 		struct tm tm = *localtime(&t);
@@ -381,16 +442,18 @@ void loadDataToServer(char* serverMessage){
 		
 		char query[255];
 		sprintf(query, "SELECT temp, hum, time FROM Data WHERE unitID = %d AND time > %s AND time < %s", id, start, end);
-		sprintf(query, "SELECT temp, hum, time FROM Data WHERE unitID = %d", id);
-		printf("%s\n", query);
+		sprintf(query, "SELECT temp, hum, time FROM Data
 		sqlite3_prepare_v2(db, query, -1, &stmt, NULL);*/
 		
-		sqlite3_prepare_v2(db, "SELECT id, name from SensorUnit WHERE opMode != 'IDLE'", -1, &stmt, NULL);
+		//sqlite3_prepare_v2(db, DAILY, -1, &stmt, NULL);
+		
+		sqlite3_prepare_v2(db, "SELECT id, name from SensorUnit WHERE opMode = 'Sensor' OR opMode = 'SensorAndRelay'", -1, &stmt, NULL);
 		flag = 1;
 		printf("Flag = %d\n", flag);
 	}
 		
 	printf("Got results:\n");
+
 	while(sqlite3_step(stmt) != SQLITE_DONE) {
 
 		int col_num = sqlite3_column_count(stmt);
@@ -456,7 +519,9 @@ void loadDataToServer(char* serverMessage){
 					
 					free(statement);
 				}
-				printf("Unit id = %d\n", sqlite3_column_int(stmt, count));
+				break;
+			default:
+				printf("Result = %f\n", sqlite3_column_double(stmt, count));
 				break;
 			}
 		}

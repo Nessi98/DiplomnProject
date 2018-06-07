@@ -59,21 +59,6 @@ end
 # Sends message to the C client to get data about the senosr unit in the DB
 get '/statistics' do
 
-	#period = params[:period]
-	#case @period
-	#when 'daily'
-	#	puts "Publish for daily stats"
-	#	client.publish(serverAction, "Statistics for the day", false, 1)
-	#when 'monthly'
-	#	puts "publish for monthly stats"
-	#	client.publish(serverAction, "Statistics for the month", false, 1)
-	#when 'yearly'
-	#	puts "publish for yearly stats"
-	#	client.publish(serverAction, "Statistics for the year", false, 1)
-	#else
-	#	redirect '/statistics?period=daily'
-	#end
-	
 	client.publish(serverAction, "Statistics for the day", false, 1) 
 	
 	serverTopic, message = client.get
@@ -97,6 +82,31 @@ get '/statistics' do
 			count = 0
 			sensorCount += 1
 		end
+	end
+
+	if  params[:id] && !params[:id].empty?
+		puts params[:id]
+		
+		#client.publish(serverAction, "", false, 1)
+		@id = params[:id]
+	else
+		@id = idArr.first
+	end
+
+	@period = params[:period]
+	case @period
+	when 'daily'
+		puts "Publish for daily stats"
+		client.publish(serverAction, "Daily;unitID=#{@id}", false, 1)
+	when 'monthly'
+		puts "publish for monthly stats"
+		client.publish(serverAction, "Monthly;unitID=#{@id}", false, 1)
+	when 'yearly'
+		puts "publish for yearly stats"
+		client.publish(serverAction, "Yearly;unitID=#{@id}", false, 1)
+	else
+		redirect "/statistics?period=daily&id=#{@id}"
+		# интерполация
 	end 
 	
 	count = 0
@@ -209,8 +219,4 @@ post '/change_settings' do
 	end	
 	
 	redirect "/config"
-end
-
-get '/statistics' do
-	puts 'Statistics'
 end
