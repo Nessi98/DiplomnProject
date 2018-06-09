@@ -1,5 +1,5 @@
-SSID    = "Joro"
-APPWD   = "Vanesa98"
+SSID    = "HUAWEI_P9lite_E2F2"
+APPWD   = "e074bd53"
 CMDFILE = "ping.lua"   -- File that is executed after connection
 
 wifiTrys     = 15     -- Counter of trys to connect to wifi
@@ -14,7 +14,7 @@ function launch()
     makeConn()
 end
 
-function checkWIFI() 
+function checkWIFI()  
     if ( wifiTrys > NUMWIFITRYS ) then
         print("Sorry. Not able to connect")
     else
@@ -22,14 +22,13 @@ function checkWIFI()
         if ( ( ipAddr ~= nil ) and  ( ipAddr ~= "0.0.0.0" ) )then
             tmr.alarm( 1 , 500 , 0 , launch )
         else
-            -- Reset alarm again
+            -- Reset al arm again
             tmr.alarm( 0 , 2500 , 0 , checkWIFI)
             print("Checking WIFI..." .. wifiTrys)
             wifiTrys = wifiTrys + 1
         end 
     end 
 end
-
 
 -- See if we are already connected by getting the IP
 ipAddr = wifi.sta.getip()
