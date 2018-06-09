@@ -8,7 +8,7 @@
 
 <div class="btn-group">
 	<a class="btn dropdown-toggle" data-toggle="dropdown"> 
-		<%= @sensors.select { |s| s[:id] = @id} %>
+		<%= @sensors.find { |s| s[:id] = @id}[:name] %>
 		<span class="caret"></span>
     </a>
 	
@@ -54,7 +54,6 @@
 		var configTemperature = {
         type: 'line',
         data: {
-           // labels: HOURS,
             datasets: [
 				<% @sensorsData.each do |unit| %>
 				{

@@ -6,22 +6,28 @@
 #include <math.h>
 
 #include "MQTTClient.h"
+#include "MQTTAsync.h"
 #include "MQTTClientPersistence.h"
 
 #define BROKER     "127.0.0.1"
 #define CLIENTID    "raspi"
 #define PAYLOAD     "001"
 #define QOS         2	
-#define TIMEOUT     1000L
+#define TIMEOUT     500L
 
 // Topic headers
 #define SERVER			"/system_name/server"
 #define SERVERACTION	"/system_name/server_action"
 #define CONFIG			"/config"
-#define DATA			"/data"
 #define ACKNOWLEDGE 	"/config_ack"
 #define SYSTEM			"/system_name/"
 #define DISCOVER		"/system_name/discover"
+
+// Time
+#define DAY				"Day"
+#define MONTH			"Month"
+#define YEAR			"Year"
+#define TIME			"%d:00"
 
 // Messages
 #define IDLE			"IDLE"
@@ -41,10 +47,12 @@
 #define UPDATERECORD	"UPDATE SensorUnit SET opMode = '%s' WHERE id = %d"
 #define UPDATENAME		"UPDATE SensorUnit SET %s WHERE id = %d"
 
-#define DAILY			"SELECT AVG(temp), AVG(hum) FROM Data WHERE unitID = 2 AND time(time) BETWEEN  strftime('%H:%M:%S', '22:00:00') AND strftime('%H:%M:%S', '23:00:00')"
+#define DAILY	"SELECT AVG(temp), AVG(hum), strftime('%H', time) FROM Data WHERE unitID = %s AND date(time) = '%s' GROUP BY strftime('%H', time)"
 
-static MQTTClient client;
+static MQTTAsync client;
+int finished = 0;
 
+volatile MQTTAsync_token deliveredtoken;
 volatile MQTTClient_deliveryToken deliveredtoken;
 
 void serverAction(char* message);
@@ -92,7 +100,6 @@ int main(int argc, char* argv[]){
 	
 	printf("Successful conntection with the Brocker.\n");
 	
-	getData(DAILY);
 	rc = MQTTClient_subscribe(client, DISCOVER, QOS);
 	if(rc == 0){
 		printf("Subscribed for topic %s successful\n", DISCOVER);
@@ -113,8 +120,23 @@ int main(int argc, char* argv[]){
 }
 
 void connlost(void *context, char *cause){
-    printf("\nConnection lost\n");
-    printf("     cause: %s\n", cause);
+    /*MQTTAsync client = (MQTTAsync)context;
+	MQTTAsync_connectOptions conn_opts = MQTTAsync_connectOptions_initializer;
+	
+	int rc;
+
+	printf("\nConnection lost\n");
+	if (cause)
+		printf("     cause: %s\n", cause);
+
+	printf("Reconnecting\n");
+	conn_opts.keepAliveInterval = 20;
+	conn_opts.cleansession = 1;
+	if ((rc = MQTTAsync_connect(client, &conn_opts)) != MQTTASYNC_SUCCESS)
+	{
+		printf("Failed to start connect, return code %d\n", rc);
+		finished = 1;
+	}*/
 }
 
 void delivered(void *context, MQTTClient_deliveryToken dt){
@@ -124,7 +146,6 @@ void delivered(void *context, MQTTClient_deliveryToken dt){
 
 int executeQuery(char* query){
 	sqlite3 *db;
-	sqlite3_stmt *stm;
 	
 	char* errMsg = 0;
 	
@@ -174,7 +195,7 @@ int messageArrived(void *context, char *topicName, int topicLen, MQTTClient_mess
 		}
 		
 		//subscribeForSensorUnit(message->payload);
-	}else if(strstr(topicName, DATA) != NULL){
+	}else if(strstr(topicName, ACKNOWLEDGE) != NULL){
 		char* token1;
 		char temp[5];
 		char hum[5];
@@ -233,13 +254,12 @@ void serverAction(char * message){
 		printf("Settings = %s\n", settings);
 		
 
-		ptr = strstr(message, ";unitID=") + strlen(";unitID;");
+		ptr = strstr(message, ";unitID=") + strlen(";unitID=");
 		
 		char* query = malloc(strlen(UPDATENAME) + strlen(settings) + strlen(ptr));
 		sprintf(query, UPDATENAME, settings, atoi(ptr));
 		
 		free(settings);
-		printf("Query = %s\n", query);
 		
 		if(executeQuery(query) == 1) {
 			printf("Unit updated successful!\n");
@@ -267,13 +287,11 @@ void serverAction(char * message){
 		printf("Mode: %s\n", mode);
 	
 		char* ptr = NULL;
-		ptr = strstr(message, "ID=") + strlen("ID=");
-		
-		printf("Ptr = %s\n", ptr);
+		ptr = strstr(message, "unitID=") + strlen("unitID=");
 
 		int size = strlen(UPDATERECORD) + strlen(mode) + strlen(ptr) + 1;
 		char* query = malloc(size);
-		//memset(query, '\0', size);	
+	
 		sprintf(query, UPDATERECORD, mode, atoi(ptr)); 
 		
 		printf("Query = %s\n", query);
@@ -285,17 +303,27 @@ void serverAction(char * message){
 		}
 		
 		free(query);  
+		
+		char* nodeMessage = (char*) malloc (strlen("opMode = ") + strlen(mode) + 1);
+		sprintf(nodeMessage, "opMode=%s", mode);
+		
+		char* topic = (char*) malloc (strlen(SYSTEM) + 1 + strlen(CONFIG) + 1);
+		sprintf(topic, "%s%d%s", SYSTEM, atoi(ptr), CONFIG);
+
+		publishMessage(nodeMessage, topic);
+		
+		free(nodeMessage);
+		free(topic);
 	}
 }
 
 void createRecordInDB(char* unitID){
-	char opMode[] = "IDLE";
+	char opMode[] = IDLE;
 
 	printf("Preparing query...\n");
+	
 	char* query = malloc(strlen(INSERTRECORD) + strlen(unitID) + strlen(opMode) + 1);
 	sprintf(query, INSERTRECORD, atoi(unitID), unitID, opMode);
-	
-	printf("Query = %s\n", query);
 	
 	if(executeQuery(query) == 1){
 		printf("Record successful!\n");
@@ -355,10 +383,15 @@ void getData(char* query){
 		printf("Failed to open\n");
 	}
 	
-	int size = 1;
-	int count;
-	char delimiter = ',';
-	char* result = (char*) malloc(size);
+	int len = 0;
+	int size = strlen("Stats,") + 1;
+	int count = 0;
+	
+	char* delimiter = ",";
+	char* result = malloc(size);
+	memcpy(result, "Stats,", size);
+	
+	printf("Result %s\n", result);
 	
 	sqlite3_prepare_v2(db, query, -1, &stmt, NULL);
 	
@@ -370,29 +403,46 @@ void getData(char* query){
 				
 			switch (sqlite3_column_type(stmt, count))
 			{
-			case(SQLITE3_TEXT):		
+			case(SQLITE3_TEXT): ;
+			
+				len = strlen(sqlite3_column_text(stmt, count));
+				size += len + strlen(delimiter);
+				
+				result = (char*) realloc (result, size);
+				
+				memcpy(result + size - (len + strlen(delimiter) + 1), sqlite3_column_text(stmt, count), len);
+				memcpy(result + size - (strlen(delimiter) + 1), delimiter, strlen(delimiter) + 1);
+				
 				break;
 				
 			case(SQLITE_INTEGER):
 				break;
-			default:
-				int len = strlen(sqlite3_column_double(stmt, count));
-				size += len + 1;
+			default: ;
+				char data[6];
+
+				sprintf(data, "%0.2f", sqlite3_column_double(stmt, count));
+
+				len = strlen(data);
+				size = size + len + strlen(delimiter);
 				
-				result = (char*) realloc(result, size);
+				result = (char*) realloc (result, size);
+
+				memcpy(result + size - (len + strlen(delimiter) + 1), data, len);
+				memcpy(result + size - (strlen(delimiter) + 1), delimiter, strlen(delimiter) + 1);
 				
-				memcpy(result + size - (len + 1), sqlite3_column_double(stmt, count), len);
-				memcpy(result + size - 1, delimiter, 1);
-				
-				printf("Result = %s\n", result);
 				break;
 			}
 		}
 	}
-	sqlite3_finalize(stmt);
 	
+	sqlite3_finalize(stmt);
 	sqlite3_close(db);
 	
+	printf("Result = %s\n", result);
+	
+	publishMessage(result, SERVER);
+	
+	free(result);	
 }
 
 void loadDataToServer(char* serverMessage){
@@ -405,7 +455,7 @@ void loadDataToServer(char* serverMessage){
 	char comma[] = ",";
 	char* message = (char*) malloc (size);
 	
-	int len;
+	int len = 0;
 	int flag = 0;
 	int count;
 	int rc = sqlite3_open("automation.db", &db);
@@ -417,35 +467,47 @@ void loadDataToServer(char* serverMessage){
 	printf("Performing query...\n");
 	
 	if(strstr(serverMessage, REALTIME) != NULL){
-		sqlite3_prepare_v2(db, "SELECT name, id from SensorUnit WHERE opMode != 'IDLE'", -1, &stmt, NULL);
+		sqlite3_prepare_v2(db, "SELECT name, id from SensorUnit WHERE opMode == 'Sensor' OR opMode == 'SensorAndRelay'", -1, &stmt, NULL);
 	}else if(strstr(serverMessage, CONFIGMESSAGE) != NULL){
 		sqlite3_prepare_v2(db, "SELECT * FROM SensorUnit", -1, &stmt, NULL);
 		flag = 1;
-	}else{
-		if(strstr(message, "day")){
-			printf("Statistics for the day\n");
-		}else if(strstr(message, "month")){
+	}else if(strstr(serverMessage, STATISTICS) !=NULL){
+		if(strstr(serverMessage, DAY) != NULL){
+
+			time_t t = time(NULL);
+			struct tm tm = *localtime(&t);
+
+			int hour = tm.tm_hour;
+			int count;
+			char start[] = "00:00";
+			char end[12];
+			
+			char date[11];
+			if(tm.tm_mon < 9 && tm.tm_mday < 10){
+				sprintf(date, "%d-0%d-0%d", tm.tm_year + 1900, tm.tm_mday, tm.tm_mon + 1); 
+			}else if(tm.tm_mday < 10){
+				sprintf(date, "%d-0%d-%d", tm.tm_year + 1900, tm.tm_mday, tm.tm_mon + 1); 
+			}else if(tm.tm_mon < 9){
+				sprintf(date, "%d-%d-0%d", tm.tm_year + 1900, tm.tm_mday, tm.tm_mon + 1); 
+			}else{
+				sprintf(date, "%d-%d-%d", tm.tm_year + 1900, tm.tm_mday, tm.tm_mon + 1); 
+			}
+			
+			sprintf(end, TIME, hour);
+			char* id = strstr(serverMessage, "unitID=") + strlen("unitID=");
+
+			char* query = (char*) malloc (strlen(DAILY) + strlen(id) + strlen(date) + 1);
+			sprintf(query, DAILY, id, date);
+			
+			printf("Query = %s\n", query);
+
+			getData(query);
+			free(query);
+		}else if(strstr(serverMessage, MONTH)){
 
 		}else{
 			
 		}
-		/*int id = 2;
-		time_t t = time(NULL);
-		struct tm tm = *localtime(&t);
-	
-		char start[19];
-		char end[19];
-		sprintf(start, "%d/%d/%d 00:00:00", tm.tm_year + 1900, tm.tm_mon + 1, tm.tm_mday);
-		sprintf(end, "%d/%d/%d 23:59:59", tm.tm_year + 1900, tm.tm_mon + 1, tm.tm_mday);
-
-		printf("now: %s\n", start);
-		
-		char query[255];
-		sprintf(query, "SELECT temp, hum, time FROM Data WHERE unitID = %d AND time > %s AND time < %s", id, start, end);
-		sprintf(query, "SELECT temp, hum, time FROM Data
-		sqlite3_prepare_v2(db, query, -1, &stmt, NULL);*/
-		
-		//sqlite3_prepare_v2(db, DAILY, -1, &stmt, NULL);
 		
 		sqlite3_prepare_v2(db, "SELECT id, name from SensorUnit WHERE opMode = 'Sensor' OR opMode = 'SensorAndRelay'", -1, &stmt, NULL);
 		flag = 1;
@@ -464,11 +526,11 @@ void loadDataToServer(char* serverMessage){
 			{
 			case(SQLITE3_TEXT):
 				
-				len = strlen(sqlite3_column_text(stmt, count)) + 1;
-				size += len;
+				len = strlen(sqlite3_column_text(stmt, count));
+				size += len + strlen(comma);
 					
 				message = (char*) realloc (message, size);
-				memcpy(message + size - (len + 1), sqlite3_column_text(stmt, count), len);
+				memcpy(message + size - (len + strlen(comma) + 1), sqlite3_column_text(stmt, count), len);
 				memcpy(message + size - 2, comma, 2);
 					
 				break;
@@ -478,12 +540,12 @@ void loadDataToServer(char* serverMessage){
 					char id[5];
 					sprintf(id, "%d", sqlite3_column_int(stmt, count));
 					
-					len = strlen(id) + 1;
-					size += len;
+					len = strlen(id);
+					size += len + strlen(comma);
 					
 					message = (char*) realloc (message, size);
-					memcpy(message + size - (len + 1), id, len);
-					memcpy(message + size - 2, comma, 2);
+					memcpy(message + size - (len + strlen(comma) + 1), id, len);
+					memcpy(message + size - strlen(comma) - 1, comma, 2);
 					
 				}else{
 
@@ -491,32 +553,40 @@ void loadDataToServer(char* serverMessage){
 					sprintf(statement, REALTIMEDATA, sqlite3_column_int(stmt, count));
 						
 					printf("Statement = %s\n", statement);
+
+					if(sqlite3_prepare_v2(db, statement, -1, &stmt2, NULL) == SQLITE_OK && sqlite3_step(stmt2) != SQLITE_DONE){		
+						printf("Du\n");
+						while(sqlite3_step(stmt2) != SQLITE_DONE) {
+							
+							char temp[5];
+							char hum[5]; 
+							
+							sprintf(temp, "%0.2f", sqlite3_column_double(stmt2, 0));
+							sprintf(hum, "%0.2f", sqlite3_column_double(stmt2, 1));
+							
+							int tempLen = strlen(temp);
+							int humLen = strlen(hum);
+							
+							size += tempLen + humLen + 2 * strlen(comma);
+							message = (char*) realloc (message, size);
+								
+							memcpy(message + size - (tempLen + humLen + 3), temp, tempLen); 
+							memcpy(message + size - (humLen + 3), comma, 1);
+							memcpy(message + size - (humLen + 2), hum, humLen); 
+							memcpy(message + size - 2, comma, 2); 
+								
+							printf("Temp = %s\n", temp);
+							printf("Hum = %s\n", hum);
+						}
+					}else{
+						printf("Dummy\n");
+						char dummy[] = "0,0,";
 						
-					sqlite3_prepare_v2(db, statement, -1, &stmt2, NULL);
-						
-					while(sqlite3_step(stmt2) != SQLITE_DONE) {
-						
-						char temp[5];
-						char hum[5]; 
-						
-						sprintf(temp, "%0.2f", sqlite3_column_double(stmt2, 0));
-						sprintf(hum, "%0.2f", sqlite3_column_double(stmt2, 1));
-						
-						int tempLen = strlen(temp); 
-						int humLen = strlen(hum);
-						
-						size += tempLen + humLen + 2 * strlen(comma);
+						size += strlen(dummy);
 						message = (char*) realloc (message, size);
-							
-						memcpy(message + size - (tempLen + humLen + 3), temp, tempLen); 
-						memcpy(message + size - (humLen + 3), comma, 1);
-						memcpy(message + size - (humLen + 2), hum, humLen); 
-						memcpy(message + size - 2, comma, 2); 
-							
-						printf("Temp = %s\n", temp);
-						printf("Hum = %s\n", hum);
+						
+						memcpy(message + size - (strlen(dummy) + 1), dummy, (strlen(dummy) + 1));						
 					}
-					
 					free(statement);
 				}
 				break;
@@ -566,8 +636,8 @@ void publishMessage(char* message, char* topic){
 	MQTTClient_publishMessage(client, topic, &pubmsg, &token);
     printf("Waiting for up to %d seconds for publication of %s\n"
             "on topic %s for client with ClientID: %s\n",
-            (int)(TIMEOUT/700), pubmsg.payload, topic, CLIENTID);
-    rc = MQTTClient_waitForCompletion(client, token, TIMEOUT/700);
+            (int)(TIMEOUT/15), pubmsg.payload, topic, CLIENTID);
+    rc = MQTTClient_waitForCompletion(client, token, TIMEOUT/15);
 	
 	printf("Message with delivery token %d delivered\n", token);
 }
@@ -582,22 +652,15 @@ void subscribeForSensorUnit(char* discover){
 	const size_t systemLen = strlen(SYSTEM);
 	const size_t discoverLen = strlen(discover);
 	
-	const size_t dataLen = strlen(DATA);
 	const size_t ackLen = strlen(ACKNOWLEDGE);
 	const size_t configLen = strlen(CONFIG);
-	
-	char* sensorDataTopic = malloc(systemLen + discoverLen + dataLen  + 1);
-	
-	memcpy(sensorDataTopic, SYSTEM, systemLen);
-	memcpy(sensorDataTopic + systemLen, discover, discoverLen);
-	memcpy(sensorDataTopic + systemLen + discoverLen, DATA, dataLen + 1);
 	
 	char* configAckTopic = malloc(systemLen + discoverLen + ackLen + 1);
 	
 	memcpy(configAckTopic, SYSTEM, systemLen);
 	memcpy(configAckTopic + systemLen, discover, discoverLen);
 	memcpy(configAckTopic + systemLen + discoverLen, ACKNOWLEDGE, ackLen + 1);
-	//memset
+
 	printf("Preparing\n");
 	int count;
 	for(count = 0; count < strlen(configAckTopic); count++){
@@ -611,7 +674,6 @@ void subscribeForSensorUnit(char* discover){
 		printf("Subscribe for topic %s successful\n", configAckTopic);
 	}
 
-	free(sensorDataTopic);
 	free(configAckTopic);
 	
 	char* configTopic = malloc(systemLen + discoverLen + configLen);

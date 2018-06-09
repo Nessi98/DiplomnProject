@@ -62,52 +62,81 @@ get '/statistics' do
 	client.publish(serverAction, "Statistics for the day", false, 1) 
 	
 	serverTopic, message = client.get
-	data = message.split(",")
 	
-	puts data
+	@sensorsData = {}
 	
-	idArr = []
-	nameArr = []
+	puts message
 	
-	count = 0
-	sensorCount = 0
+	if message.include? "Stats"
+		data = message.split(",")
+		puts "Hellos"
+		count = 1;
+		
+		data.each do |d| 
+			case count
+			when 1
+				@sensorsData[:dataPoints[:temp]] = d
+				count += 1
+			when 2
+				@sensorsData[:dataPoints[:hum]] = d
+				count += 1
+			when 3
+				@sensorsData[:dataPoints[:time]] = d
+				count = 1
+			else
+				continue
+			end
+		end
+
+		puts @sensorsData	
+	else
 	
-	data.each do |d|		
-		if count == 0 then 
-			idArr[sensorCount] = d	
-			count += 1
-		else
-			nameArr[sensorCount] = d
+		data = message.split(",")
+		
+		puts data
+		
+		idArr = []
+		nameArr = []
+		
+		count = 0
+		sensorCount = 0
+		
+		data.each do |d|		
+			if count == 0
+				idArr[sensorCount] = d	
+				count += 1
+			else
+				nameArr[sensorCount] = d
+				
+				count = 0
+				sensorCount += 1
+			end
+		end
+
+		if  params[:id] && !params[:id].empty?
+			puts params[:id]
 			
-			count = 0
-			sensorCount += 1
+			@id = params[:id]
+		else
+			@id = idArr.first
 		end
 	end
 
-	if  params[:id] && !params[:id].empty?
-		puts params[:id]
-		
-		#client.publish(serverAction, "", false, 1)
-		@id = params[:id]
-	else
-		@id = idArr.first
-	end
-
-	@period = params[:period]
-	case @period
-	when 'daily'
-		puts "Publish for daily stats"
-		client.publish(serverAction, "Daily;unitID=#{@id}", false, 1)
-	when 'monthly'
-		puts "publish for monthly stats"
-		client.publish(serverAction, "Monthly;unitID=#{@id}", false, 1)
-	when 'yearly'
-		puts "publish for yearly stats"
-		client.publish(serverAction, "Yearly;unitID=#{@id}", false, 1)
-	else
-		redirect "/statistics?period=daily&id=#{@id}"
+	#@period = params[:period]
+	#case @period
+	#when 'daily'
+	#	puts "Publish for daily stats"
+	#	client.publish(serverAction, "StatisticsForTheDay;unitID=#{@id}", false, 1)
+	#when 'monthly'
+	#	puts "publish for monthly stats"
+	#	client.publish(serverAction, "StatisticsForTheMonth;unitID=#{@id}", false, 1)
+	#when 'yearly'
+	#	puts "publish for yearly stats"
+	#	client.publish(serverAction, "StatisticsForTheYear;unitID=#{@id}", false, 1)
+	#else
+	#	redirect "/statistics?period=daily&id=#{@id}"
 		# интерполация
-	end 
+	#end 
 	
 	count = 0
 
@@ -119,27 +148,6 @@ get '/statistics' do
 	
 	puts sensorCount
 	puts @sensors
-	
-	#data.each do |d|
-	#	puts d
-		#data.split(",").each do |d|
-		#end
-	#end
-	
-	@sensorsData = [{
-		sensorName: 'Kitchen',
-		sensorColor: 'blue',
-		
-		dataPoints: [{
-			temp: 15.7,
-			time: 9
-		},
-		{
-			temp: 16.9,
-			time: 10
-		},
-		]
-	}]
 	
 	erb :statistics
 end
@@ -198,7 +206,7 @@ end
 get '/sensor' do
 	puts "Change mode: mode = #{params[:mode]} unitID = #{params[:id]}"
 	
-	client.publish(serverAction, "Change mode;mode=#{params[:mode]};unitID=#{params[:id]}", false, 1)
+	client.publish(serverAction, "Change mode;opMode=#{params[:mode]};unitID=#{params[:id]}", false, 1)
 	
 	redirect "/config"
 end
