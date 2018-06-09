@@ -8,13 +8,13 @@
 
 <div class="btn-group">
 	<a class="btn dropdown-toggle" data-toggle="dropdown"> 
-		<%= @sensors.find { |s| s[:id] = @id}[:name] %>
+		<%= @sensors.find { |s| s['id'] = @id}['name'] %>
 		<span class="caret"></span>
     </a>
 	
     <ul class="dropdown-menu">
 		<% @sensors.each do |sensor| %>
-			<a style="margin-left: 10px"href="/statistics?period=daily&id=<%= sensor[:id] %>" > <%= sensor[:name] %> </a>
+			<a style="margin-left: 10px"href="/statistics?period=daily&id=<%= sensor['id'] %>" > <%= sensor['name'] %> </a>
 			<br />
 		<% end %>
     </ul>
@@ -48,14 +48,16 @@
 		purple: 'rgb(153, 102, 255)',
 		grey: 'rgb(201, 203, 207)'
     };
-    var HOURS = ['8:00', '9:00', '10:00', '11:00', '12:00', '13:00', '14:00', '15:00', '16:00', '17:00', '18:00', '19:00', '20:00', '21:00'];
+
+	var HOURS = new Array( <%= @sensorData.first['dataPoints'].map{ |point| point['time'] }.join(", ") %>);
 
     window.onload = function() {
 		var configTemperature = {
         type: 'line',
         data: {
+			labels: HOURS,
             datasets: [
-				<% @sensorsData.each do |unit| %>
+				<% @sensorData.each do |unit| %>
 				{
 					label: '',
 					fill: false,
@@ -63,10 +65,10 @@
 					borderColor: window.chartColors.blue,
 					
 					data: [
-						<% unit[:dataPoints].each do |point| %>
+						<% unit['dataPoints'].each do |point| %>
 						{
-							y: <%= point[:temp] %>,
-							x: <%= point[:time] %>
+							y: <%= point['temp'] %>,
+							x: <%= point['time'] %>
 						},
 						<% end %>
 					],
@@ -107,87 +109,60 @@
     };
 
     var configHumidity = {
-		type: 'line',
+        type: 'line',
         data: {
 			labels: HOURS,
-            datasets: [{
-              label: '',
-              backgroundColor: window.chartColors.purple,
-              borderColor: window.chartColors.purple,
-              data: [{
-                x: 10,
-                y: 40.5
-              }, {
-                x: 15,
-                y: 41
-              }, {
-                x: 20,
-                y: 41
-              }, {
-                x: 25,
-                y: 41.5
-              }, {
-                x: 30,
-                y: 42
-              }, {
-                x: 35,
-                y: 41
-              }, {
-                x: 40,
-                y: 42.5
-              }, {
-                x: 45,
-                y: 43
-              }, {
-                x: 50,
-                y: 42.5
-              }, {
-                x: 55,
-                y: 41
-              }, {
-                x: 60,
-                y: 41.5
-              }, {
-                x: 65,
-                y: 40.5
-              },{
-                x: 70,
-                y: 40.5
-              }, {
-                x: 75,
-                y: 40
-              }],
-              fill: false,
-            }]
+            datasets: [
+				<% @sensorData.each do |unit| %>
+				{
+					label: '',
+					fill: false,
+					backgroundColor: window.chartColors.purple,
+					borderColor: window.chartColors.purple,
+					
+					data: [
+						<% unit['dataPoints'].each do |point| %>
+						{
+							y: <%= point['hum'] %>,
+							x: <%= point['time'] %>
+						},
+						<% end %>
+					],
+				},
+				<% end %>
+			]
         },
         options: {
-          responsive: true,
+			responsive: true,
             title: {
-              display: true,
+				display: true,
                 text: 'Humidity'
             },
+			
             tooltips: {
-              mode: 'index',
+				mode: 'index',
                 intersect: false,
             },
+			
             hover: {
-              mode: 'nearest',
-                intersect: true
+				mode: 'nearest',
+                intersect: true,
             },
+			
             scales: {
-              xAxes: [{
-                display: true,
-              }],
+				xAxes: [{
+					display: true,
+				}],
                 yAxes: [{
-                  display: true,
-                  scaleLabel: {
-                    display: true,
-                      labelString: 'Humidity'
-                  }
+					display: true,
+					scaleLabel: {
+						display: true,
+						labelString: 'Humidity'
+					}
                 }]
             }
         }
-      };
+    };
 
       window.myLine = new Chart(document.getElementById('TemperatureLineChart').getContext('2d'), configTemperature);
       window.myLine = new Chart(document.getElementById('HumidityLineChart').getContext('2d'), configHumidity);

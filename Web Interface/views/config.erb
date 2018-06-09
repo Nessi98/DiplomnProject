@@ -5,30 +5,30 @@
 <% @sensors.each do |sensor| %>
 	<div class="row" style="padding: 10px 20px;">
 		<div class="span2" style="padding: 10px 0 0 70px; font-size: 18px;">
-			<%= sensor[:name] %>
+			<%= sensor['name'] %>
 		</div>
 		<div class="span2">
 			<div class="btn-group" data-toggle="buttons-radio">
-				<a href="/sensor?id=<%= sensor[:id] %>&mode=enabled" class=" <%= if sensor[:enabled] then 'active' else '' end %> btn ">On</a>
-				<a href="/sensor?id=<%= sensor[:id] %>&mode=disabled"  class=" <%= if !sensor[:enabled] then 'active' else '' end %> btn ">Off</a>
+				<a href="/sensor?id=<%= sensor['id'] %>&mode=enabled" class=" <%= if sensor['enabled'] then 'active' else '' end %> btn ">On</a>
+				<a href="/sensor?id=<%= sensor['id'] %>&mode=disabled"  class=" <%= if !sensor['enabled'] then 'active' else '' end %> btn ">Off</a>
 			</div>
 		</div>
 		
 		<div class="span4">
 			<div class="btn-group" data-toggle="buttons-radio">
-				<a href="/sensor?id=<%= sensor[:id] %>&mode=Sensor" class=" <%= if sensor[:op_Mode] == 'Sensor' then 'active' else '' end %> btn ">Sensor</a>
-				<a href="/sensor?id=<%= sensor[:id] %>&mode=Relay" class=" <%= if sensor[:op_Mode] == 'Relay' then 'active' else '' end %> btn ">Relay</a>
-				<a href="/sensor?id=<%= sensor[:id] %>&mode=SensorAndRelay" class=" <%= if sensor[:op_Mode] == 'SensorAndRelay' then 'active' else '' end %> btn ">Sensor And Relay</a>
+				<a href="/sensor?id=<%= sensor['id'] %>&mode=Sensor" class=" <%= if sensor['opMode'] == 'Sensor' then 'active' else '' end %> btn ">Sensor</a>
+				<a href="/sensor?id=<%= sensor['id'] %>&mode=Relay" class=" <%= if sensor['opMode'] == 'Relay' then 'active' else '' end %> btn ">Relay</a>
+				<a href="/sensor?id=<%= sensor['id'] %>&mode=SensorAndRelay" class=" <%= if sensor['opMode'] == 'SensorAndRelay' then 'active' else '' end %> btn ">Sensor And Relay</a>
 			</div>
 		</div>
 		
 		<div class="span8">
 			<form method="POST" action="/change_settings">
 				<input placeholder="Edit name" name="name" type="text"></input>
-				<input value="<%= sensor[:id] %>" name="id" type="hidden"></input>
+				<input value="<%= sensor['id'] %>" name="id" type="hidden"></input>
 				
 				<input placeholder="Change Relay Value" name="value" type="number" max="30" min="18"></input>
-				<input value="<%= sensor[:id] %>" name="id" type="hidden"></input>
+				<input value="<%= sensor['id'] %>" name="id" type="hidden"></input>
 				
 				<button style="margin-top: -10px;" type="submit" class="btn"> Save </button>
 			</form>

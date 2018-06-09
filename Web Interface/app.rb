@@ -1,6 +1,7 @@
 require 'rubygems'
 require 'sinatra'
 require 'mqtt'
+require 'sqlite3'
 require 'sinatra/reloader' if development?
 
 set :bind, '0.0.0.0'
@@ -14,191 +15,61 @@ client.connect
 client.subscribe(serverTopic)
 #client.publish(serverAck, 'Hello from the server side', false, 1)  
 
+db = SQLite3::Database.new "../RaspiClient/automation.db"
+db.results_as_hash = true
+
 get '/' do
-  # load these from the db
-  
-	client.publish(serverAction, 'Real Time', false, 1)
-
-	serverTopic, message = client.get
-	data = message.split(",")
-	 
-	count = 0 
-	sensorsCount = 0
-
-	nameArr  = []
-	tempArr = []
-	humArr = []
-
-	data.each do |d|
-	  
-		case  
-		when count == 0
-			nameArr[sensorsCount] = d
-			count += 1
-		when count == 1
-			tempArr[sensorsCount] = d
-			count += 1
-		else
-			humArr[sensorsCount] = d
-			count = 0
-			sensorsCount += 1
-		end
+	@sensors = []
+	db.execute( "SELECT * FROM SensorUnit as su LEFT JOIN Data as d ON su.id = d.unitID ORDER BY d.time ASC LIMIT 1" ) do |sensor|
+		@sensors << sensor	
 	end
-	
-	count = 0
-
-	@sensors = Array.new
-	while count < sensorsCount do
-		@sensors << { :name => nameArr[count], :temp => tempArr[count], :hum => humArr[count]}
-		count += 1
-	end
-	
 	erb :index
 end
 
 # Sends message to the C client to get data about the senosr unit in the DB
 get '/statistics' do
+	@sensors = []
 
-	client.publish(serverAction, "Statistics for the day", false, 1) 
-	
-	serverTopic, message = client.get
-	
-	@sensorsData = {}
-	
-	puts message
-	
-	if message.include? "Stats"
-		data = message.split(",")
-		puts "Hellos"
-		count = 1;
-		
-		data.each do |d| 
-			case count
-			when 1
-				@sensorsData[:dataPoints[:temp]] = d
-				count += 1
-			when 2
-				@sensorsData[:dataPoints[:hum]] = d
-				count += 1
-			when 3
-				@sensorsData[:dataPoints[:time]] = d
-				count = 1
-			else
-				continue
-			end
-		end
-
-		puts @sensorsData	
-	else
-	
-		data = message.split(",")
-		
-		puts data
-		
-		idArr = []
-		nameArr = []
-		
-		count = 0
-		sensorCount = 0
-		
-		data.each do |d|		
-			if count == 0
-				idArr[sensorCount] = d	
-				count += 1
-			else
-				nameArr[sensorCount] = d
-				
-				count = 0
-				sensorCount += 1
-			end
-		end
-
-		if  params[:id] && !params[:id].empty?
-			puts params[:id]
-			
-			@id = params[:id]
-		else
-			@id = idArr.first
-		end
+	db.execute( "SELECT * FROM SensorUnit" ) do |sensor|
+		@sensors << sensor
 	end
 
-	#@period = params[:period]
-	#case @period
-	#when 'daily'
-	#	puts "Publish for daily stats"
-	#	client.publish(serverAction, "StatisticsForTheDay;unitID=#{@id}", false, 1)
-	#when 'monthly'
-	#	puts "publish for monthly stats"
-	#	client.publish(serverAction, "StatisticsForTheMonth;unitID=#{@id}", false, 1)
-	#when 'yearly'
-	#	puts "publish for yearly stats"
-	#	client.publish(serverAction, "StatisticsForTheYear;unitID=#{@id}", false, 1)
-	#else
-	#	redirect "/statistics?period=daily&id=#{@id}"
-		# интерполация
-	#end 
-	
-	count = 0
+	@id = @sensors.first['id']
+	@period = 'daily'
 
-	@sensors = Array.new
-	while count < sensorCount do
-		@sensors << { :id => idArr[count], :name => nameArr[count]}
-		count += 1
+	if params[:id] && !params[:id].empty?
+		@id = params[:id]
 	end
-	
-	puts sensorCount
-	puts @sensors
-	
+	if params[:period] && !params[:id].empty?
+		@period = params[:period]
+	end
+
+	now = Time.now
+	query = case @period
+		when 'monthly'
+			"SELECT AVG(temp) as temp, AVG(hum) as hum, strftime('%d', time) as time FROM Data WHERE unitID = #{@id} AND date(time) BETWEEN '#{now.year}-01-#{now.month.to_s.rjust(2, '0')}' AND '#{now.year}-#{now.day.to_s.rjust(2, '0')}-#{now.month.to_s.rjust(2, '0')}' GROUP BY strftime('%Y-%m-%d', time)"
+		 when 'yearly'
+			"SELECT AVG(temp) as temp, AVG(hum) as hum, strftime('%m', time) as time FROM Data WHERE unitID = #{@id} AND date(time) BETWEEN '#{now.year}-01-01' AND '#{now.year}-#{now.day.to_s.rjust(2, '0')}-#{now.month.to_s.rjust(2, '0')}' GROUP BY strftime('%m', time)"
+		 else 'daily'
+			 "SELECT AVG(temp) as temp, AVG(hum) as hum, strftime('%H', time) as time FROM Data WHERE unitID = #{@id} AND date(time) = '#{now.year}-#{now.day.to_s.rjust(2, '0')}-#{now.month.to_s.rjust(2, '0')}' GROUP BY strftime('%H', time)"
+		 end
+	data = { 'dataPoints' => [] }
+	db.execute(query) do |row|
+		data['dataPoints'] << row			
+	end
+
+	@sensorData = [ data ]
+
 	erb :statistics
 end
 
 get '/config' do
-	# Send message to the C client to get information for the sensors
-	client.publish(serverAction, 'Config', false, 1)
-
-	serverTopic, message = client.get
-	 
-	counter = 0
-	sensorCount = 0
-
-	idArr = []
-	nameArr = []
-	opModeArr = []
-	enabledArr = []
-
-	data = message.split(",")
-	  
-	data.each do |d|
-
-		case counter
-		when 0
-			idArr[sensorCount] = d
-			counter += 1
-		when 1
-			nameArr[sensorCount] = d
-			counter += 1
-		else
-			if d.include? "IDLE"
-				enabledArr[sensorCount] = false
-			else
-				enabledArr[sensorCount] = true
-			end
-			
-			opModeArr[sensorCount] = d
-			sensorCount += 1
-			counter = 0
-		end
+	@sensors = []
+	db.execute( "SELECT * FROM SensorUnit" ) do |sensor|
+		sensor['enabled'] = sensor['opMode'] != 'IDLE'
+		@sensors << sensor	
 	end
-
-	counter = 0
-
-	@sensors = Array.new
-	while counter < sensorCount do
-		@sensors << {:id => idArr[counter], :name => nameArr[counter], :enabled => enabledArr[counter], :op_Mode => opModeArr[counter]}
-		
-		counter += 1
-	end
-
+	p @sensors
 	erb :config
 end
 

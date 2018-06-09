@@ -24,7 +24,7 @@
 #define DISCOVER		"/system_name/discover"
 
 // Time
-#define DAY				"Day"
+#define DAY				"Daily"
 #define MONTH			"Month"
 #define YEAR			"Year"
 #define TIME			"%d:00"
@@ -47,9 +47,9 @@
 #define UPDATERECORD	"UPDATE SensorUnit SET opMode = '%s' WHERE id = %d"
 #define UPDATENAME		"UPDATE SensorUnit SET %s WHERE id = %d"
 
-#define DAILY	"SELECT AVG(temp), AVG(hum), strftime('%H', time) FROM Data WHERE unitID = %s AND date(time) = '%s' GROUP BY strftime('%H', time)"
+#define DAILY	"SELECT AVG(temp), AVG(hum), strftime('%H', time) FROM Data WHERE unitID = %d AND date(time) = '%s' GROUP BY strftime('%H', time)"
 
-static MQTTAsync client;
+static MQTTClient client;
 int finished = 0;
 
 volatile MQTTAsync_token deliveredtoken;
@@ -107,10 +107,9 @@ int main(int argc, char* argv[]){
 	
 	rc = MQTTClient_subscribe(client, SERVERACTION, QOS);
 	if(rc == 0){
-		printf("Subscribed for topic %s successful\n", SERVER);
-	}
+		printf("Subscribed for topic %s successful\n", SERVERACTION);
+	}	
     
-	publishMessage("Hello", "/system_name/4/config");
 	while(1){}
 	
     MQTTClient_disconnect(client, 10000);
@@ -391,7 +390,7 @@ void getData(char* query){
 	char* result = malloc(size);
 	memcpy(result, "Stats,", size);
 	
-	printf("Result %s\n", result);
+	printf("Result: %s\n", result);
 	
 	sqlite3_prepare_v2(db, query, -1, &stmt, NULL);
 	
@@ -497,21 +496,24 @@ void loadDataToServer(char* serverMessage){
 			char* id = strstr(serverMessage, "unitID=") + strlen("unitID=");
 
 			char* query = (char*) malloc (strlen(DAILY) + strlen(id) + strlen(date) + 1);
-			sprintf(query, DAILY, id, date);
+			sprintf(query, DAILY, atoi(id), date);
 			
 			printf("Query = %s\n", query);
 
 			getData(query);
+			
+			free(message);
 			free(query);
+			
+			return;
 		}else if(strstr(serverMessage, MONTH)){
 
 		}else{
-			
-		}
 		
-		sqlite3_prepare_v2(db, "SELECT id, name from SensorUnit WHERE opMode = 'Sensor' OR opMode = 'SensorAndRelay'", -1, &stmt, NULL);
-		flag = 1;
-		printf("Flag = %d\n", flag);
+			sqlite3_prepare_v2(db, "SELECT id, name from SensorUnit WHERE opMode = 'Sensor' OR opMode = 'SensorAndRelay'", -1, &stmt, NULL);
+			flag = 1;
+			printf("Flag = %d\n", flag);
+		}
 	}
 		
 	printf("Got results:\n");
@@ -527,7 +529,7 @@ void loadDataToServer(char* serverMessage){
 			case(SQLITE3_TEXT):
 				
 				len = strlen(sqlite3_column_text(stmt, count));
-				size += len + strlen(comma);
+				size = size + len + strlen(comma);
 					
 				message = (char*) realloc (message, size);
 				memcpy(message + size - (len + strlen(comma) + 1), sqlite3_column_text(stmt, count), len);
@@ -554,8 +556,8 @@ void loadDataToServer(char* serverMessage){
 						
 					printf("Statement = %s\n", statement);
 
-					if(sqlite3_prepare_v2(db, statement, -1, &stmt2, NULL) == SQLITE_OK && sqlite3_step(stmt2) != SQLITE_DONE){		
-						printf("Du\n");
+					//if(sqlite3_prepare_v2(db, statement, -1, &stmt2, NULL) == SQLITE_OK && sqlite3_step(stmt2) != SQLITE_DONE){		
+						sqlite3_prepare_v2(db, statement, -1, &stmt2, NULL);
 						while(sqlite3_step(stmt2) != SQLITE_DONE) {
 							
 							char temp[5];
@@ -578,7 +580,7 @@ void loadDataToServer(char* serverMessage){
 							printf("Temp = %s\n", temp);
 							printf("Hum = %s\n", hum);
 						}
-					}else{
+					/*}else{
 						printf("Dummy\n");
 						char dummy[] = "0,0,";
 						
@@ -586,7 +588,7 @@ void loadDataToServer(char* serverMessage){
 						message = (char*) realloc (message, size);
 						
 						memcpy(message + size - (strlen(dummy) + 1), dummy, (strlen(dummy) + 1));						
-					}
+					}*/
 					free(statement);
 				}
 				break;
@@ -623,7 +625,9 @@ void loadDataToDB(int unitID, char* temp, char* hum, char* time){
 
 void publishMessage(char* message, char* topic){
 	
-	int rc;
+	int rc = 0;
+	
+	printf("Message %s\n", message);
 	
 	MQTTClient_message pubmsg = MQTTClient_message_initializer;
 	MQTTClient_deliveryToken token;
@@ -636,8 +640,12 @@ void publishMessage(char* message, char* topic){
 	MQTTClient_publishMessage(client, topic, &pubmsg, &token);
     printf("Waiting for up to %d seconds for publication of %s\n"
             "on topic %s for client with ClientID: %s\n",
-            (int)(TIMEOUT/15), pubmsg.payload, topic, CLIENTID);
-    rc = MQTTClient_waitForCompletion(client, token, TIMEOUT/15);
+            (int)(TIMEOUT/20), pubmsg.payload, topic, CLIENTID);
+    //rc = MQTTClient_waitForCompletion(client, token, TIMEOUT/20);
+	
+	if(token == -1){
+		publishMessage(message, topic);
+	}
 	
 	printf("Message with delivery token %d delivered\n", token);
 }
